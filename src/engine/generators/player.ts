@@ -65,6 +65,7 @@ export function generatePlayer(rng: Rng, position: PlayerPosition, targetOverall
     secondaryPosition: secondary.length === 0 ? null : pick(rng, secondary),
     attributes, overall, morale: randomInt(rng, 60, 90), fitness: randomInt(rng, 85, 100),
     injury: null,
+    discipline: { yellowCards: 0, suspendedMatches: 0 },
     contract: { salary: Math.round(qualityValue * 0.012 * experienceFactor / 100) * 100 + 100, yearsRemaining: randomInt(rng, 1, 5) },
     marketValue: Math.round(qualityValue * resaleFactor / 1000) * 1000,
     currentTeamId: null,

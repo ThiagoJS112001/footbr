@@ -3,7 +3,7 @@ import { CLUB_NAME_CAPACITY, generateClubName } from './names.ts';
 import { createRng, randomInt } from './random.ts';
 import { generateTeam } from './team.ts';
 
-/** Calendário e classificação serão implementados na etapa de campeonatos. */
+/** Calendário e classificação são preparados ao iniciar o campeonato. */
 export function generateLeague(seed: number, numTeams = 20): League {
   if (!Number.isInteger(numTeams) || numTeams < 2 || numTeams > CLUB_NAME_CAPACITY) {
     throw new RangeError(`A liga deve ter entre 2 e ${CLUB_NAME_CAPACITY} times.`);
@@ -27,6 +27,6 @@ export function generateLeague(seed: number, numTeams = 20): League {
   return {
     id: `league-${seed}`, name: 'Liga dos Horizontes', teams,
     schedule: [], standings: [],
-    rules: { promotionSpots: 0, relegationSpots: Math.min(4, Math.floor(numTeams / 5)) },
+    rules: { promotionSpots: 0, qualificationSpots: Math.min(4, Math.floor(numTeams / 2)), relegationSpots: Math.min(4, Math.floor(numTeams / 2)) },
   };
 }

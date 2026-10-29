@@ -40,12 +40,14 @@ function prepare(team: MatchTeam, config: SimulationConfig): Side {
   const squad = new Map(team.squad.map((player) => [player.id, player]));
   const formation = tactic.formation.split('-').map(Number);
   if (starterIds.length !== config.starters || new Set(ids).size !== ids.length
-    || squad.size !== team.squad.length || ids.some((id) => !squad.has(id) || squad.get(id)!.injury !== null)
+    || squad.size !== team.squad.length || ids.some((id) => !squad.has(id) || squad.get(id)!.injury !== null || squad.get(id)!.discipline.suspendedMatches > 0)
+    || Object.entries(team.lineup.positions ?? {}).some(([id, position]) => !starterIds.includes(id)
+      || (squad.get(id)?.primaryPosition !== position && squad.get(id)?.secondaryPosition !== position))
     || formation.some((count) => !Number.isInteger(count) || count <= 0)
     || formation.reduce((sum, count) => sum + count, 0) !== config.outfieldPlayers) {
     throw new Error('Escalação inválida: use 11 titulares disponíveis, IDs únicos e formação com 10 jogadores de linha.');
   }
-  const active = starterIds.map((id) => squad.get(id)!);
+  const active = starterIds.map((id) => ({ ...squad.get(id)!, primaryPosition: team.lineup.positions?.[id] ?? squad.get(id)!.primaryPosition }));
   if (active.filter((player) => player.primaryPosition === 'GK').length !== 1) {
     throw new Error('A escalação deve ter exatamente um goleiro titular.');
   }

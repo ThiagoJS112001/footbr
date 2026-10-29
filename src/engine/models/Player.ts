@@ -32,6 +32,11 @@ export interface PlayerContract {
   yearsRemaining: number;
 }
 
+export interface PlayerDiscipline {
+  yellowCards: number;
+  suspendedMatches: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -47,6 +52,7 @@ export interface Player {
   /** Escala de 0 a 100. */
   fitness: number;
   injury: Injury | null;
+  discipline: PlayerDiscipline;
   contract: PlayerContract | null;
   marketValue: number;
   /** null representa jogador sem clube. */

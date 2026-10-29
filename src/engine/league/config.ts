@@ -1,0 +1,17 @@
+export const leagueConfig = {
+  winPoints: 3,
+  drawPoints: 1,
+  yellowCardsForSuspension: 3,
+  suspensionMatches: 1,
+  daysBetweenRounds: 7,
+  injuryMinDays: 7,
+  injuryMaxDays: 28,
+  fitnessRecovery: 18,
+  fullMatchFatigue: 22,
+  maxFitness: 100,
+  minFitness: 0,
+  secondaryPositionFactor: 0.9,
+  unavailableCost: 1_000_000,
+  forfeitGoals: 3,
+  seedMultiplier: 0x9e3779b9,
+};

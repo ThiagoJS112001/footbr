@@ -1,9 +1,12 @@
 import type { Tactic } from './Tactic';
+import type { PlayerPosition } from './Player';
 
 export interface Lineup {
   starterIds: string[];
   substituteIds: string[];
   tactic: Tactic;
+  /** Posição ocupada por titular, quando diferente de sua posição principal. */
+  positions?: Record<string, PlayerPosition>;
 }
 
 export interface MatchScore {
@@ -48,4 +51,6 @@ export interface Match {
   score: MatchScore | null;
   events: MatchEvent[];
   statistics: MatchStatistics | null;
+  /** W.O. por falta de escalação elegível; não gera gols para artilheiros. */
+  forfeitTeamIds?: string[];
 }

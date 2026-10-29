@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "gen-league": "node --experimental-strip-types scripts/gen-league.mjs",
-    "sim-match": "node --experimental-strip-types scripts/sim-match.mjs"
+    "sim-match": "node --experimental-strip-types scripts/sim-match.mjs",
+    "sim-season": "node --experimental-strip-types scripts/sim-season.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

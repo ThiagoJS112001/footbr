@@ -16,10 +16,14 @@ export interface LeagueStanding {
   goalsAgainst: number;
   goalDifference: number;
   points: number;
+  position: number;
+  qualified: boolean;
+  relegated: boolean;
 }
 
 export interface LeagueRules {
   promotionSpots: number;
+  qualificationSpots: number;
   relegationSpots: number;
 }
 
