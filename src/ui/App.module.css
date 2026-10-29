@@ -1,0 +1,178 @@
+.muted { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.accent, .brandAccent { color: var(--accent); }
+.eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 600; color: var(--accent); margin-bottom: 12px; }
+.brand { display: flex; align-items: center; font-family: 'Manrope Variable', sans-serif; font-size: 29px; font-weight: 800; letter-spacing: -1.4px; }
+.brandDot { color: var(--accent); }
+.brandIcon { display: inline-flex; align-items: center; justify-content: center; color: #b4d98a; background: #b4d98a10; border: 1px solid #b4d98a30; border-radius: 9px; width: 35px; height: 38px; margin-right: 11px; }
+.brandIcon svg { width: 22px; height: 22px; }
+.primaryButton, .secondaryButton { display: inline-flex; justify-content: center; align-items: center; gap: 16px; min-height: 44px; border-radius: 7px; padding: 12px 20px; font-size: 13px; font-weight: 700; border: 1px solid transparent; transition: background .15s, transform .15s; }
+.primaryButton { background: var(--accent); color: #182314; }
+.primaryButton:hover:not(:disabled) { background: #c6e7a2; transform: translateY(-1px); }
+.primaryButton:disabled { background: #303c2e; color: #a1b197; }
+.secondaryButton { border-color: var(--line); background: #1b231d; }
+.secondaryButton:hover { background: #263029; }
+.textButton { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: 0; color: var(--accent); font-size: 12px; padding: 5px 0; }
+.textButton:hover { color: #e0f3c8; }
+.textButton svg { height: 16px; width: 16px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #3b4936; color: #c1d7af; background: #b4d98a08; border-radius: 5px; padding: 9px 12px; font-size: 10px; font-weight: 500; letter-spacing: .7px; white-space: nowrap; }
+.liveDot, .greenDot, .redDot { display: inline-block; flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.redDot { background: #d98888; }
+.error { color: #f1aaaa; border: 1px solid #714342; border-radius: 6px; padding: 12px 16px; margin: 16px 20px; font-size: 13px; }
+.clubBadge { display: inline-flex; justify-content: center; align-items: center; flex-shrink: 0; width: 30px; height: 34px; border: 1px solid #ffffff12; border-radius: 7px 7px 12px 12px; font-family: 'Manrope Variable', sans-serif; font-size: 10px; letter-spacing: .2px; font-weight: 800; }
+.badgeLarge { width: 58px; height: 66px; border-radius: 12px 12px 22px 22px; font-size: 20px; box-shadow: inset 0 0 0 5px #ffffff04; }
+.menu { max-width: 1440px; margin: 0 auto; padding: 32px 64px 24px; min-height: 100svh; display: flex; flex-direction: column; background: radial-gradient(ellipse at 75% 45%, #2d43231b, transparent 60%); }
+.menuHeader, .menuFooter, .selectionTop { display: flex; justify-content: space-between; align-items: center; }
+.menuLabel { font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+.menuContent { display: grid; grid-template-columns: 1.2fr 1fr; gap: 90px; align-items: center; flex: 1; padding-block: 60px; }
+.menu h1 { font-size: clamp(48px, 5.5vw, 78px); font-weight: 650; line-height: 1.11; letter-spacing: -4px; margin: 28px 0 22px; }
+.menu h1 em { font-style: normal; color: var(--accent); }
+.menuDescription { color: #a4afa6; font-size: 16px; max-width: 410px; line-height: 1.8; }
+.menuActions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.menuActions .primaryButton { min-width: 180px; min-height: 50px; justify-content: space-between; }
+.menuNumbers { display: flex; gap: 32px; margin-top: 55px; }
+.menuNumbers > div { padding-right: 25px; border-right: 1px solid var(--line); }
+.menuNumbers > div:last-child { border: 0; padding: 0; }
+.menuNumbers strong { display: block; font-size: 25px; font-weight: 500; margin-bottom: 7px; }
+.menuNumbers span { font-size: 10px; color: var(--muted); }
+.pitchArt { padding: 22px; background: #171f1899; border: 1px solid #2d3a2d; border-radius: 12px; max-width: 430px; width: 100%; transform: rotate(2deg); box-shadow: 0 25px 100px #0003; }
+.pitchCaption { display: flex; justify-content: space-between; color: #b1bfa9; font-size: 7px; letter-spacing: 1px; margin-bottom: 18px; }
+.pitch { width: 100%; max-height: 440px; display: block; }
+.pitchFooter { display: flex; gap: 12px; align-items: center; padding-top: 20px; color: var(--accent); }
+.pitchFooter span { font-size: 11px; line-height: 1.7; color: var(--muted); }
+.pitchFooter strong { font-weight: 500; color: #dfe8d9; }
+.menuFooter { padding-top: 20px; border-top: 1px solid var(--line); font-size: 9px; letter-spacing: .8px; color: #839087; gap: 20px; }
+.selection { max-width: 1440px; padding: 28px 50px 40px; margin: auto; }
+.selectionTop { margin-bottom: 55px; }
+.pageHeader { display: flex; justify-content: space-between; align-items: center; gap: 25px; margin-bottom: 30px; }
+.pageHeader h1 { font-size: clamp(23px, 2.3vw, 31px); font-weight: 650; letter-spacing: -.8px; margin-bottom: 9px; }
+.selectionLegend { display: flex; justify-content: space-between; padding-bottom: 15px; color: #b3beb5; font-size: 12px; }
+.selectionLegend span:last-child { color: #849187; font-size: 11px; }
+.clubGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.clubCard { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; transition: border-color .15s, background .15s, transform .15s; }
+.clubCard:hover { border-color: #7e9c64; background: #1c271e; transform: translateY(-3px); }
+.clubCardTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.overallNumber { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; color: #d5dfce; text-align: right; }
+.overallNumber small { display: block; font-size: 8px; letter-spacing: 1px; color: var(--muted); margin-top: 4px; }
+.clubCard h2 { font-size: 14px; line-height: 1.5; min-height: 42px; font-weight: 600; }
+.clubCard .muted { font-size: 11px; margin-top: 4px; }
+.clubCardBottom { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); margin-top: 18px; padding-top: 15px; font-size: 10px; color: var(--muted); gap: 8px; }
+.clubCardBottom strong { display: block; color: #e0e6dd; font-size: 13px; margin-top: 5px; }
+.clubCardBottom small { font-size: 10px; color: var(--muted); font-weight: 400; }
+.chooseClub { display: inline-flex; gap: 7px; align-items: center; color: var(--accent); }
+.chooseClub svg { width: 15px; }
+.selectionFootnote { text-align: center; color: var(--muted); font-size: 11px; padding-top: 35px; }
+.appShell { min-height: 100svh; }
+.skipLink { position: fixed; top: -80px; z-index: 10; left: 270px; padding: 12px; background: var(--accent); color: #101512; }
+.skipLink:focus { top: 12px; }
+.sidebar { position: fixed; inset: 0 auto 0 0; z-index: 5; width: 236px; padding: 30px 20px 22px; border-right: 1px solid var(--line); background: #131a15; display: flex; flex-direction: column; }
+.sidebar .brand { margin-left: 8px; margin-bottom: 34px; }
+.sidebarClub { display: flex; align-items: center; gap: 10px; padding: 14px 10px; border: 1px solid #303a31; background: #1c251d; border-radius: 7px; margin-bottom: 32px; }
+.sidebarClub strong { display: block; font-size: 11px; line-height: 1.5; font-weight: 500; }
+.sidebarClub small { display: block; color: #93a38f; font-size: 8px; letter-spacing: 1.3px; margin-top: 4px; }
+.navCaption { font-size: 8px; letter-spacing: 1.5px; color: #7e8d81; padding-left: 12px; margin-bottom: 14px; }
+.sidebar nav { display: grid; gap: 7px; }
+.sidebar nav button { display: flex; align-items: center; gap: 13px; width: 100%; height: 46px; padding: 0 13px; border: 1px solid transparent; border-radius: 6px; background: transparent; text-align: left; font-size: 12px; color: #a7b1a9; }
+.sidebar nav button:hover { background: #202b22; color: #e0e8dd; }
+.sidebar nav .activeNav { background: #b4d98a10; border-color: #b4d98a20; color: var(--accent); }
+.navIndicator { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; margin-left: auto; }
+.sidebarBottom { margin-top: auto; padding: 28px 12px 0; }
+.seasonMarker { display: flex; align-items: center; gap: 8px; font-size: 9px; letter-spacing: 1px; color: #c0cdba; }
+.sidebarBottom p { color: #849487; font-size: 10px; line-height: 1.8; margin: 13px 0 25px; }
+.sidebarBottom .textButton { color: #9ca99e; border-top: 1px solid var(--line); padding-top: 20px; width: 100%; }
+.workspace { margin-left: 236px; min-height: 100svh; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; height: 73px; padding: 0 36px; border-bottom: 1px solid var(--line); font-size: 12px; color: #adb9b0; }
+.topbar > div { display: flex; align-items: center; gap: 9px; font-size: 11px; color: #dce5d8; }
+.managerAvatar { display: inline-flex; align-items: center; justify-content: center; width: 31px; height: 31px; margin-left: 18px; border: 1px solid #3a4737; border-radius: 50%; background: #283222; color: #c2d8b0; font-size: 9px; }
+.content { padding: 36px; max-width: 1600px; width: 100%; margin: 0 auto; flex: 1; }
+.workspaceFooter { display: flex; justify-content: space-between; padding: 22px 36px; color: #748277; font-size: 8px; letter-spacing: 1.1px; }
+.metricGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.metric { padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.metric h2 { color: #a3b0a5; font-family: inherit; font-size: 8px; font-weight: 500; letter-spacing: .8px; margin-bottom: 15px; }
+.metric > strong { display: block; font-family: 'Manrope Variable', sans-serif; font-weight: 600; font-size: 31px; letter-spacing: -1px; margin-bottom: 9px; line-height: 1; }
+.metric > span { color: #92a095; font-size: 10px; }
+.dashboardGrid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 22px; margin-bottom: 24px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; min-width: 0; }
+.panelHeading { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 20px 22px; }
+.panel h2 { font-size: 13px; font-weight: 600; }
+.subtleTag { color: #9daa9e; font-size: 8px; letter-spacing: .7px; white-space: nowrap; }
+.matchMeta { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 10px; color: #a6b5a9; padding-top: 14px; }
+.matchMeta .liveDot { width: 4px; height: 4px; }
+.matchup { display: grid; grid-template-columns: 1fr 50px 1fr; align-items: center; gap: 12px; padding: 32px 28px 20px; }
+.matchup > div { display: flex; align-items: center; flex-direction: column; text-align: center; gap: 12px; }
+.matchup strong { font-size: 12px; font-weight: 500; max-width: 170px; min-height: 36px; line-height: 1.5; }
+.matchup small { color: #829585; font-size: 8px; letter-spacing: 1.2px; }
+.versus { font-family: 'Manrope Variable', sans-serif; text-align: center; font-size: 20px; color: #637467; margin-top: -45px; }
+.stadiumLine { text-align: center; font-size: 9px; color: #859489; padding: 3px 14px 28px; }
+.advanceBar { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding: 18px 20px; gap: 18px; background: #1c251d70; }
+.advanceBar > span { max-width: 170px; font-size: 10px; color: #99a99c; line-height: 1.7; }
+.advanceBar .primaryButton { font-size: 11px; padding: 11px 14px; min-height: 40px; gap: 10px; white-space: nowrap; }
+.advanceBar .primaryButton svg { width: 15px; }
+.formRow { display: flex; justify-content: center; gap: 10px; padding: 19px 12px 23px; }
+.formBadge { display: flex; align-items: center; justify-content: center; width: 33px; height: 33px; border: 1px solid #354037; border-radius: 6px; background: #202823; color: #7e8e80; font-size: 11px; }
+.resultV { background: #b4d98a15; border-color: #b4d98a40; color: #bedc9b; }
+.resultE { background: #beb1a012; border-color: #80776560; color: #c5b7a1; }
+.resultD { background: #d7848410; border-color: #a55b5b55; color: #e09999; }
+.emptyResults { min-height: 173px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 13px; padding: 12px 20px 36px; }
+.emptyResults svg { color: #6b806f; width: 26px; height: 26px; margin-bottom: 3px; }
+.emptyResults strong { font-size: 12px; font-weight: 500; color: #c5cec4; }
+.emptyResults p { max-width: 190px; text-align: center; line-height: 1.7; font-size: 10px; color: #87978b; }
+.panelFooter { text-align: center; padding: 16px; border-top: 1px solid var(--line); }
+.panelFooter .textButton { font-size: 10px; }
+.resultList { padding: 0 20px 15px; }
+.resultList li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.resultList li > span { display: flex; align-items: center; gap: 9px; font-size: 10px; color: #c3cec4; }
+.resultList small { font-size: 7px; color: #8b9c8f; min-width: 24px; }
+.resultList strong { font-size: 11px; white-space: nowrap; font-weight: 500; }
+.tableClub { display: flex; align-items: center; gap: 11px; font-size: 12px; }
+.youTag { display: inline-block; margin-left: 8px; color: var(--accent); font-size: 7px; font-weight: 600; letter-spacing: .5px; }
+.qualifiedPosition { color: var(--accent); }
+.relegatedPosition { color: #e3a0a0; }
+.qualifiedRow td:first-child { box-shadow: inset 3px 0 #94bb6e; }
+.relegatedRow td:first-child { box-shadow: inset 3px 0 #c27d7d; }
+.selectedRow { background: #a7cd8410; }
+.selectedRow .tableClub { color: #d3e8bd; }
+.legend { display: flex; align-items: center; gap: 20px; }
+.legend > span { display: flex; align-items: center; gap: 7px; color: #a5b0a7; font-size: 10px; }
+.tableNote { border-top: 1px solid var(--line); padding: 16px 20px; font-size: 10px; color: #94a197; line-height: 1.7; }
+.rulesNote { color: #8d9b90; font-size: 11px; margin: 20px 2px; line-height: 1.8; }
+.tableToolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px; }
+.tableToolbar h2 { margin-bottom: 6px; }
+.tableToolbar .muted { font-size: 11px; }
+.filterLabel { display: flex; flex-direction: column; gap: 7px; font-size: 10px; color: #9eada1; }
+.filterLabel select { border: 1px solid #37423a; border-radius: 6px; padding: 10px 32px 10px 12px; background: #1d271f; color: #d9e2d6; font-size: 11px; max-width: 240px; }
+.playerName { display: flex; flex-direction: column; gap: 6px; }
+.playerName strong { font-size: 12px; font-weight: 500; }
+.playerName small { color: #92a197; font-size: 9px; }
+.positionTag { display: inline-block; text-align: center; min-width: 37px; border: 1px solid #3c4940; background: #243028; padding: 5px; border-radius: 4px; color: #b6c4b8; font-size: 9px; }
+.rating { display: inline-block; min-width: 31px; border: 1px solid #b4d98a25; color: var(--accent); background: #b4d98a0a; padding: 6px; border-radius: 5px; font-size: 12px; }
+.level { display: flex; align-items: center; gap: 10px; font-size: 10px; color: #b9c4bc; }
+.levelTrack { width: 47px; background: #344137; border-radius: 3px; height: 4px; overflow: hidden; }
+.levelTrack > span { display: block; background: #9fbf7d; height: 100%; }
+.levelTrack > .levelLow { background: #cea779; }
+.roundList { display: grid; gap: 12px; }
+.roundCard { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; overflow: hidden; }
+.roundCard summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 19px 22px; cursor: pointer; list-style: none; }
+.roundCard summary::-webkit-details-marker { display: none; }
+.roundCard summary > span:first-child { display: flex; align-items: center; gap: 18px; }
+.roundCard summary > span:first-child::before { content: '›'; display: inline-block; color: #9eaf9d; font-size: 19px; width: 10px; }
+.roundCard[open] summary > span:first-child::before { transform: rotate(90deg); }
+.roundCard summary strong { font-size: 12px; font-weight: 500; }
+.roundCard summary small { color: #809284; font-size: 8px; letter-spacing: 1px; }
+.currentTag, .finishedTag { color: var(--accent); border: 1px solid #b4d98a25; border-radius: 4px; background: #b4d98a08; font-size: 9px; padding: 5px 8px; }
+.finishedTag { color: #a0b4a6; background: #a0b4a608; border-color: #a0b4a625; }
+.roundCard li { display: grid; grid-template-columns: 1fr 62px 1fr; align-items: center; gap: 16px; border-top: 1px solid var(--line); padding: 13px 22px; }
+.roundCard .ownMatch { background: #b4d98a08; }
+.calendarHome, .calendarAway { display: flex; align-items: center; gap: 12px; font-size: 11px; line-height: 1.5; }
+.calendarHome { justify-content: flex-end; text-align: right; }
+.calendarAway { justify-content: flex-start; }
+.calendarScore { text-align: center; background: #101812; padding: 8px 3px; border-radius: 4px; color: #d1ddcb; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.calendarScore small { display: block; font-size: 8px; margin-top: 4px; color: #abbbad; }
+.seasonEnd { display: flex; align-items: center; gap: 18px; background: #b4d98a0b; border: 1px solid #b4d98a40; color: #cde5b6; padding: 22px; margin-bottom: 24px; border-radius: 8px; }
+.seasonEnd h2 { font-size: 18px; margin-bottom: 7px; }
+.seasonEnd p { font-size: 12px; color: #afc6a0; line-height: 1.7; }
+.seasonEnd svg { height: 30px; width: 30px; }
+.finishedMessage { padding: 80px 25px; text-align: center; color: #a3b59f; font-size: 13px; }
+@media (min-width: 1500px) { .dashboardGrid { grid-template-columns: 1.7fr 1fr; } .metric { padding: 24px; } .metric > strong { font-size: 36px; } }
+@media (max-width: 1200px) { .clubGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .content { padding: 28px; } .sidebar { width: 214px; padding-inline: 16px; } .workspace { margin-left: 214px; } .dashboardGrid { grid-template-columns: 1.3fr 1fr; gap: 16px; } .metricGrid { gap: 12px; } .metric { padding: 17px; } .metric > span { font-size: 9px; } .advanceBar { flex-wrap: wrap; } .advanceBar > span { max-width: none; } .panelHeading { padding: 18px; } .panelHeading .subtleTag { font-size: 7px; } .menuContent { gap: 40px; } .menu { padding-inline: 40px; } .menuNumbers { gap: 20px; } .menuNumbers > div { padding-right: 18px; } }
+@media (max-width: 950px) { .sidebar { width: 188px; padding-inline: 12px; } .sidebar .brand { font-size: 25px; } .workspace { margin-left: 188px; } .content { padding: 25px 20px; } .topbar { padding-inline: 20px; } .dashboardGrid { grid-template-columns: 1fr; } .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .advanceBar { flex-wrap: nowrap; } .clubGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .selection { padding-inline: 30px; } .selection .pageHeader { align-items: flex-start; flex-direction: column; } .menuContent { gap: 30px; } .menu h1 { font-size: 52px; letter-spacing: -2.5px; } .menuNumbers { gap: 15px; flex-wrap: wrap; } .menu .pill { white-space: normal; font-size: 8px; } .menuNumbers > div { padding-right: 15px; } .menuDescription { font-size: 14px; } .pitchCaption { font-size: 6px; } }
+@media (max-width: 650px) { .sidebar { width: 66px; padding: 24px 8px; } .sidebar .brand { font-size: 0; margin: 0 auto 32px; } .sidebar .brandIcon { margin: 0; width: 34px; } .sidebarClub, .navCaption, .sidebarBottom { display: none; } .sidebar nav button { font-size: 0; justify-content: center; padding: 0; height: 46px; gap: 0; } .navIndicator { display: none; } .workspace { margin-left: 66px; } .topbar { padding-inline: 15px; height: 63px; gap: 8px; font-size: 10px; } .topbar > div { font-size: 9px; } .managerAvatar { display: none; } .content { padding: 25px 14px; } .pageHeader { gap: 10px; margin-bottom: 23px; } .pageHeader h1 { font-size: 23px; } .pageHeader .badgeLarge { width: 43px; height: 49px; font-size: 15px; } .pageHeader .muted { font-size: 11px; } .eyebrow { font-size: 8px; letter-spacing: 1.2px; } .metric { padding: 16px 12px; } .metric h2 { font-size: 7px; letter-spacing: .5px; } .metric > strong { font-size: 28px; } .metric > span { font-size: 9px; } .metricGrid { gap: 10px; } .matchup { padding: 27px 13px 19px; gap: 5px; grid-template-columns: 1fr 30px 1fr; } .matchup strong { font-size: 10px; } .matchup .badgeLarge { width: 46px; height: 53px; font-size: 17px; } .advanceBar { flex-direction: column; align-items: stretch; text-align: center; padding: 16px; gap: 12px; } .advanceBar .primaryButton { justify-content: space-between; } .panelHeading { padding: 16px; gap: 10px; } .panelHeading h2 { font-size: 11px; } .panelHeading .textButton { font-size: 9px; gap: 5px; } .panelHeading .textButton svg { width: 12px; } .legend { flex-wrap: wrap; gap: 6px; } .legend > span { font-size: 8px; } .tableToolbar { flex-direction: column; align-items: stretch; padding: 16px; } .tableToolbar .filterLabel select { max-width: none; } .roundCard summary { padding: 16px 12px; gap: 6px; } .roundCard summary > span:first-child { gap: 8px; } .roundCard summary small { display: none; } .roundCard li { padding: 12px 9px; gap: 7px; grid-template-columns: 1fr 39px 1fr; } .calendarHome, .calendarAway { font-size: 9px; gap: 5px; } .roundCard .clubBadge { display: none; } .calendarScore { font-size: 11px; } .workspaceFooter { padding-inline: 14px; font-size: 6px; letter-spacing: .4px; gap: 8px; } .pageHeader:has(.filterLabel) { flex-wrap: wrap; } .menu { padding: 24px; } .menuContent { grid-template-columns: 1fr; padding-block: 60px 40px; } .menu h1 { font-size: 62px; } .menuLabel { font-size: 7px; letter-spacing: 1px; } .pitchArt { max-width: 330px; margin: 20px auto; } .pitchCaption { font-size: 6px; } .menuNumbers { margin-top: 40px; gap: 18px; } .menuNumbers span { font-size: 9px; } .menuFooter { font-size: 7px; line-height: 1.7; } .selection { padding: 24px 18px; } .selectionTop { margin-bottom: 40px; } .selectionLegend { gap: 15px; font-size: 10px; } .selectionLegend span:last-child { font-size: 9px; text-align: right; } .clubGrid { gap: 10px; } .clubCard { padding: 14px; } .clubCard h2 { font-size: 12px; min-height: 54px; } .clubCard .badgeLarge { width: 39px; height: 47px; font-size: 15px; } .overallNumber { font-size: 21px; } .overallNumber small { font-size: 6px; } .clubCardBottom { align-items: flex-start; flex-direction: column; gap: 14px; } .chooseClub { width: 100%; justify-content: space-between; } .selectionFootnote { font-size: 10px; line-height: 1.8; } }
