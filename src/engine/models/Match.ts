@@ -15,6 +15,8 @@ export interface TeamMatchStatistics {
   /** Porcentagem de posse de bola, de 0 a 100. */
   possession: number;
   shots: number;
+  shotsOnTarget: number;
+  corners: number;
   xG: number;
 }
 
