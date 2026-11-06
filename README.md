@@ -1,6 +1,6 @@
 # FootBR
 
-Jogo de gerenciamento de futebol em React e TypeScript, com clubes e jogadores fictícios. Foco em temporadas rápidas e decisões de escalação, tática e mercado.
+Jogo de gerenciamento de futebol em React e TypeScript, com base fictícia e importação opcional de identidades reais pela API-Football. Foco em temporadas rápidas e decisões de escalação, tática e mercado.
 
 A interface segue a identidade visual oficial FootBR: azul-marinho, verde, Inter e ícones Lucide. O [design system](src/ui/DESIGN_SYSTEM.md) registra os componentes e as regras para manter todas as telas consistentes.
 
@@ -10,6 +10,10 @@ npm run dev
 npm test
 npm run build
 ```
+
+Requer **Node.js 22.19 ou superior**. `npm run dev` inicia a interface e o backend local de importação. Sem chave, **Importação de Dados**, no menu inicial, oferece dois clubes fictícios por divisão para testar o fluxo completo. **Novo jogo** continua usando a base fictícia original.
+
+Para dados reais, copie [.env.example](.env.example) para `.env`, preencha `API_FOOTBALL_KEY` somente nesse arquivo e reinicie o servidor. Consulte o [guia de importação](docs/IMPORTACAO.md) para configurar temporadas, imagens e atributos. Depois de `npm run build`, `npm start` serve a interface e a API em `http://127.0.0.1:3001`.
 
 ## Mudanças, por prioridade
 
@@ -31,7 +35,7 @@ A copa entra no fluxo de **Avançar** após as rodadas 4, 8, 14, 20, 28 e 36. Et
 
 Em **Categorias de Base**, avaliar custa R$ 5 mil e revela o teto de evolução. Promover custa dois salários em luvas, com contrato de três anos. É possível promover sem avaliar, assumindo a incerteza. A diretoria faz a primeira avaliação após oito rodadas no cargo e depois a cada quatro. Confiança em 15% ou menos encerra o vínculo; continue pela tela **Diretoria**, escolhendo um novo emprego.
 
-Os saves ficam no armazenamento local do navegador, sem servidor. O menu e o painel de saves permitem escolher slots e exportar cópias. Se o navegador bloquear o armazenamento ou atingir a cota, o jogo informa a falha e mantém a exportação disponível. Limpar os dados do navegador remove os saves locais.
+O progresso dos saves fica no armazenamento local do navegador. O catálogo importado, imagens licenciadas, cache, registros e cópias iniciais das carreiras ficam no SQLite local, em `.data/footbr.sqlite`. Alterações durante o jogo não são gravadas no catálogo. O menu e o painel de saves permitem escolher slots e exportar cópias. Se o navegador bloquear o armazenamento ou atingir a cota, o jogo informa a falha e mantém a exportação disponível. Limpar os dados do navegador remove os saves locais; o banco não substitui um backup do progresso.
 
 A migração mantém dinheiro, elencos, resultados e partidas em andamento. Em saves antigos de temporadas já iniciadas, a copa começa na temporada seguinte. Estatísticas individuais antigas que nunca foram registradas não são inventadas; os novos registros começam com os dados disponíveis.
 
@@ -42,6 +46,9 @@ A migração mantém dinheiro, elencos, resultados e partidas em andamento. Em s
 - `src/engine/career`: economia, negociação e transição entre temporadas/divisões.
 - `src/engine/save`: formato versionado e validação de saves.
 - `src/ui`: telas e store; persistência no navegador fica nesta camada.
+- `src/data`: contratos do catálogo e configuração dos atributos simulados.
+- `server`: API local, integração API-Football, SQLite, cache e importações retomáveis.
+- `src/engine/career/imported.ts`: transformação de uma cópia do catálogo em uma carreira independente.
 
 O motor continua independente de React e DOM. As demonstrações `npm run sim-match` e `npm run sim-season` continuam disponíveis; a segunda testa uma liga isolada, enquanto a interface coordena a carreira com duas divisões e finanças.
 

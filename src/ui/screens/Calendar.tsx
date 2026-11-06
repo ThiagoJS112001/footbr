@@ -19,9 +19,9 @@ export function Calendar({ league, selectedTeamId, currentRound }: { league: Lea
       return <details className={styles.roundCard} key={round.round} open={round.round === currentRound}>
         <summary><span><strong>Rodada {padRound(round.round)}</strong><small>{round.round <= league.schedule.length / 2 ? 'TURNO' : 'RETURNO'}</small></span><span className={finished ? styles.finishedTag : round.round === currentRound ? styles.currentTag : styles.subtleTag}>{finished ? 'Concluída' : round.round === currentRound ? 'Próxima rodada' : 'A disputar'}</span></summary>
         <ul>{matches.map((match) => <li key={match.id} className={match.homeTeamId === selectedTeamId || match.awayTeamId === selectedTeamId ? styles.ownMatch : ''}>
-          <span className={styles.calendarHome}>{teams.get(match.homeTeamId)!.name}<ClubBadge name={teams.get(match.homeTeamId)!.name} /></span>
+          <span className={styles.calendarHome}>{teams.get(match.homeTeamId)!.name}<ClubBadge name={teams.get(match.homeTeamId)!.name} image={teams.get(match.homeTeamId)!.identity?.facts.image} /></span>
           <strong className={styles.calendarScore} aria-label={match.score ? `Placar ${match.score.home} a ${match.score.away}` : 'Jogo a disputar'}>{match.score ? `${match.score.home} – ${match.score.away}` : '×'}{match.forfeitTeamIds?.length ? <small>W.O.</small> : null}</strong>
-          <span className={styles.calendarAway}><ClubBadge name={teams.get(match.awayTeamId)!.name} />{teams.get(match.awayTeamId)!.name}</span>
+          <span className={styles.calendarAway}><ClubBadge name={teams.get(match.awayTeamId)!.name} image={teams.get(match.awayTeamId)!.identity?.facts.image} />{teams.get(match.awayTeamId)!.name}</span>
         </li>)}</ul>
         {systems.cup.rounds.filter((stage) => stage.afterRound === round.round).map((stage) => <p key={stage.round} className={styles.tableNote}>Copa · {stage.name} após esta rodada: {stage.matches.some((m) => m.homeTeamId === selectedTeamId || m.awayTeamId === selectedTeamId) ? 'seu clube tem um compromisso' : 'sem jogo do seu clube nesta etapa'}.</p>)}
       </details>;

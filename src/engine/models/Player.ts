@@ -1,3 +1,5 @@
+import type { ImportedIdentity, PlayerFacts } from '../../data/catalog';
+
 export type PlayerPosition =
   | 'GK'
   | 'CB'
@@ -38,6 +40,7 @@ export interface PlayerDiscipline {
 }
 
 export interface Player {
+  identity?: ImportedIdentity<PlayerFacts>;
   id: string;
   name: string;
   age: number;

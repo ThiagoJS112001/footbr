@@ -21,7 +21,7 @@ import { resetUiPreferences } from './uiStore';
 import { decodeStoredSave, encodeStoredSave } from './saveStorage';
 
 export type GameScreen = 'dashboard' | 'squad' | 'lineup' | 'match' | 'standings' | 'calendar' | 'market' | 'finances' | 'history' | 'cup' | 'academy' | 'board' | 'compare';
-export type Screen = 'menu' | 'club-selection' | GameScreen;
+export type Screen = 'menu' | 'club-selection' | 'data-import' | GameScreen;
 export const saveKey = (slot = 0) => `footbr.save.v1.${slot}`;
 
 interface GameData extends Omit<Career, 'league' | 'otherLeague' | 'seed'> {
@@ -46,8 +46,9 @@ interface GameData extends Omit<Career, 'league' | 'otherLeague' | 'seed'> {
 
 interface GameActions {
   startNewGame: (seed?: number) => void;
+  startImportedGame: (career: Career) => void;
   selectTeam: (teamId: string) => void;
-  navigate: (screen: GameScreen | 'menu') => void;
+  navigate: (screen: GameScreen | 'menu' | 'data-import') => void;
   updateTactic: (patch: Partial<Tactic>) => void;
   pickPlayer: (slot: number, playerId: string) => void;
   toggleReserve: (playerId: string) => void;
@@ -76,6 +77,7 @@ interface GameActions {
 }
 
 export const initialGameData: GameData = {
+  source: undefined,
   league: null, otherLeague: null, selectedTeamId: null, currentRound: 1, seed: null, season: 1,
   screen: 'menu', isAdvancing: false, error: null, message: null, saveStatus: '',
   lineup: null, finances: [], history: [], freeAgents: [], news: [], live: null, commands: [], lastRound: null, paused: true, speed: 1,
@@ -84,8 +86,8 @@ export const initialGameData: GameData = {
 
 export function careerOf(state: GameData): Career {
   if (!state.league || !state.otherLeague || state.seed === null || !state.selectedTeamId) throw new Error('Escolha um clube primeiro.');
-  const { league, otherLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems } = state;
-  return { league, otherLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems };
+  const { league, otherLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems, source } = state;
+  return { league, otherLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems, source };
 }
 function replay(data: SaveData): RoundSession | null {
   if (!data.progress) return null;
@@ -156,6 +158,14 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
   };
   return {
     ...initialGameData,
+    startImportedGame: (career) => {
+      try {
+        if (get().live || get().isAdvancing) throw new Error('Conclua a partida antes de iniciar outra carreira.');
+        if (!career.source || career.selectedTeamId !== null) throw new Error('Base inicial de carreira inválida.');
+        resetUiPreferences();
+        set({ ...initialGameData, ...structuredClone(career), screen: 'club-selection' });
+      } catch (error) { fail(error); }
+    },
     startNewGame: (providedSeed) => {
       try {
         if (get().live) throw new Error('Conclua a partida antes de iniciar outra carreira.');
@@ -179,7 +189,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       autoSave();
     },
     navigate: (screen) => {
-      if (screen !== 'menu' && (!get().league || !get().selectedTeamId)) return;
+      if (screen !== 'menu' && screen !== 'data-import' && (!get().league || !get().selectedTeamId)) return;
       set({ screen: get().live && screen !== 'menu' ? 'match' : screen, error: null, message: null });
     },
     autoLineup: () => {

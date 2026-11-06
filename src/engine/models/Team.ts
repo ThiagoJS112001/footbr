@@ -1,5 +1,6 @@
 import type { Player } from './Player';
 import type { Tactic } from './Tactic';
+import type { ClubFacts, ImportedIdentity } from '../../data/catalog';
 
 export interface Stadium {
   capacity: number;
@@ -7,6 +8,7 @@ export interface Stadium {
 }
 
 export interface Team {
+  identity?: ImportedIdentity<ClubFacts>;
   id: string;
   name: string;
   city: string;

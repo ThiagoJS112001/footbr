@@ -14,6 +14,7 @@ export function ClubSelection({ league: primary }: { league: League }) {
   const league = alternate && otherLeague ? otherLeague : primary;
   const selectTeam = useGameStore((state) => state.selectTeam);
   const navigate = useGameStore((state) => state.navigate);
+  const source = useGameStore((state) => state.source);
   return <main className={styles.selection}>
     <div className={styles.selectionTop}><Brand /><button className={styles.textButton} onClick={() => navigate('menu')}>← Voltar ao início</button></div>
     <PageHeader eyebrow="NOVO JOGO · ESCOLHA DO CLUBE" title="Onde começa a sua história?" description="Um favorito ao título ou um desafio para surpreender. Escolha o clube que você vai comandar."><span className={styles.pill}>{league.teams.length} CLUBES · 1 CAMPEONATO</span></PageHeader>
@@ -21,11 +22,11 @@ export function ClubSelection({ league: primary }: { league: League }) {
     <div className={styles.selectionLegend}><span>{league.name}</span><span>Ordenados por força do elenco</span></div>
     <div className={styles.clubGrid}>
       {[...league.teams].sort((a, b) => averageOverall(b) - averageOverall(a)).map((team) => <button className={styles.clubCard} key={team.id} onClick={() => selectTeam(team.id)} aria-label={`Assumir ${team.name}`}>
-        <div className={styles.clubCardTop}><ClubBadge name={team.name} size="large" /><span className={styles.overallNumber}>{averageOverall(team).toFixed(1)}<small>FORÇA MÉDIA</small></span></div>
-        <h2>{team.name}</h2><p className={styles.muted}>{team.city}</p>
+        <div className={styles.clubCardTop}><ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /><span className={styles.overallNumber}>{averageOverall(team).toFixed(1)}<small>FORÇA MÉDIA</small></span></div>
+        <h2>{team.name}</h2><p className={styles.muted}>{team.city} · {team.identity ? team.identity.provider === 'demo' ? 'Demonstração fictícia' : 'Identidade importada' : 'Clube fictício'}</p>
         <div className={styles.clubCardBottom}><span>Reputação <strong>{team.reputation}<small> / 100</small></strong></span><span className={styles.chooseClub}>Assumir clube <Icon name="arrow" /></span></div>
       </button>)}
     </div>
-    <p className={styles.selectionFootnote}>Todos os clubes e jogadores são fictícios. Uma temporada, infinitas possibilidades.</p>
+    <p className={styles.selectionFootnote}>{source ? `${source.importedClubs} clubes importados · ${source.fictionalClubs} clubes fictícios complementares. Atributos, finanças e contratos são simulação. Base independente: atualizações da API não alteram esta carreira.` : 'Todos os clubes e jogadores são fictícios. Uma temporada, infinitas possibilidades.'}</p>
   </main>;
 }

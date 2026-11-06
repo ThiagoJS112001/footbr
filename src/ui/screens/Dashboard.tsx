@@ -47,7 +47,7 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
   ];
   return <>
     <div className={styles.clubHero}>
-      <PageHeader eyebrow={`${league.name} · TEMPORADA ${padRound(season)}`} title="Central do Clube" description="Visão geral do seu time, próximas partidas, elenco e principais informações."><div className={styles.heroClub}><ClubBadge name={team.name} size="large" /><span>{team.name}<small>{team.city}</small></span></div></PageHeader>
+      <PageHeader eyebrow={`${league.name} · TEMPORADA ${padRound(season)}`} title="Central do Clube" description="Visão geral do seu time, próximas partidas, elenco e principais informações."><div className={styles.heroClub}><ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /><span>{team.name}<small>{team.city}</small></span></div></PageHeader>
     </div>
     {champion && <section role="status" className={styles.seasonEnd}><Icon name="standings" size={30} /><div><h2>Temporada encerrada</h2><p>Campeão: <strong>{champion.name}</strong>. Seu clube terminou em {standing.position}º lugar. Revise os contratos antes de continuar.</p><button className={styles.primaryButton} onClick={beginNextSeason}>Começar próxima temporada</button></div></section>}
     <RoundReview compact />
@@ -57,8 +57,8 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
         <Panel title="Próxima Partida" icon={cup ? 'cup' : 'calendar'} className={styles.nextMatchPanel} action={<span className={styles.subtleTag}>{cup ? 'COPA' : pending ? `RODADA ${padRound(currentRound)}` : 'ENCERRADA'}</span>}>
           {nextMatch && homeTeam && awayTeam ? <>
             <p className={styles.matchMeta}>{cup ? `${systems.cup.name} · ${cup.name}` : `${league.name} · ${currentRound <= league.schedule.length / 2 ? 'Turno' : 'Returno'}`}</p>
-            <div className={styles.matchup}><div><ClubBadge name={homeTeam.name} size="large" /><strong>{homeTeam.name}</strong></div><span className={styles.versus}>×</span><div><ClubBadge name={awayTeam.name} size="large" /><strong>{awayTeam.name}</strong></div></div>
-            <div className={styles.fixtureDetails}><span><Icon name="calendar" size={16} />{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : true)}</span><span><Icon name="stadium" size={16} />{homeTeam.city}</span></div>
+            <div className={styles.matchup}><div><ClubBadge name={homeTeam.name} image={homeTeam.identity?.facts.image} size="large" /><strong>{homeTeam.name}</strong></div><span className={styles.versus}>×</span><div><ClubBadge name={awayTeam.name} image={awayTeam.identity?.facts.image} size="large" /><strong>{awayTeam.name}</strong></div></div>
+            <div className={styles.fixtureDetails}><span><Icon name="calendar" size={16} />{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : true, state.source?.seasons[0]?.year)}</span><span><Icon name="stadium" size={16} />{homeTeam.city}</span></div>
           </> : <div className={styles.finishedMessage}>{champion ? 'Mais uma temporada entrou para a história.' : 'Seu clube folga nesta rodada.'}</div>}
           <div className={styles.matchAction}><button className={styles.primaryButton} onClick={() => navigate('lineup')} disabled={isAdvancing || !pending && !cup || systems.board.status === 'dismissed'}><Icon name="lineup" size={20} />{isAdvancing ? 'Simulando…' : pending || cup ? 'Preparar partida' : 'Temporada concluída'}</button></div>
         </Panel>
@@ -66,7 +66,7 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
           <div className={styles.compactStandings}><StandingsTable league={league} selectedTeamId={team.id} compact /></div>
         </Panel>
         <Panel title="Elenco · Destaques" icon="squad" className={styles.highlightsPanel} footer={link('Ver elenco completo', () => navigate('squad'))}>
-          <ul className={styles.highlightList}>{highlights.map((player) => <li key={player.id}><PlayerAvatar /><span><strong>{player.name}</strong><small>{positionLabels[player.primaryPosition]}</small></span><span className={styles.rating}>{player.overall}</span></li>)}</ul>
+          <ul className={styles.highlightList}>{highlights.map((player) => <li key={player.id}><PlayerAvatar player={player} /><span><strong>{player.name}</strong><small>{positionLabels[player.primaryPosition]}</small></span><span className={styles.rating}>{player.overall}</span></li>)}</ul>
         </Panel>
         <Panel title="Finanças" icon="finances" className={styles.financialPanel} action={<Icon name="trend" size={19} />}>
           <dl className={styles.financeSummary}><div><dt>Saldo do clube</dt><dd className={team.budget < 0 ? styles.loss : styles.accent}>{currency(team.budget)}</dd></div><div><dt>Receitas <small>(temporada)</small></dt><dd className={styles.accent}>{currency(income)}</dd></div><div><dt>Despesas <small>(temporada)</small></dt><dd className={expenses ? styles.loss : ''}>{currency(expenses)}</dd></div></dl>
@@ -83,7 +83,7 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
       </div>
       <aside className={styles.dashboardAside} aria-label="Atualizações do clube">
         <Panel title="Notícias do Clube" icon="news" footer={link('Mais notícias', () => navigate('history'))}>
-          <ul className={styles.newsList}>{updates.map((item, index) => <li key={index}><div className={`${styles.newsThumb} ${item.kind === 'stadium' ? styles.stadiumThumb : ''}`} aria-hidden="true">{item.kind === 'club' ? <ClubBadge name={team.name} size="large" /> : item.kind === 'squad' ? <Icon name="shirt" size={35} /> : null}</div><div><strong>{item.headline}</strong><small>{item.detail}</small></div></li>)}</ul>
+          <ul className={styles.newsList}>{updates.map((item, index) => <li key={index}><div className={`${styles.newsThumb} ${item.kind === 'stadium' ? styles.stadiumThumb : ''}`} aria-hidden="true">{item.kind === 'club' ? <ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /> : item.kind === 'squad' ? <Icon name="shirt" size={35} /> : null}</div><div><strong>{item.headline}</strong><small>{item.detail}</small></div></li>)}</ul>
         </Panel>
         <Panel title="Últimos resultados" icon="history" action={<span className={styles.subtleTag}>FORMA RECENTE</span>} footer={link('Ver calendário', () => navigate('calendar'))}>
           <div className={styles.formRow}>{Array.from({ length: 5 }, (_, index) => {

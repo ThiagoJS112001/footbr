@@ -36,12 +36,24 @@ const tactic = shape({ formation: oneOf('4-4-2', '4-3-3', '4-2-3-1', '3-5-2', '5
 const lineup = shape({ starterIds: list(text, 11), substituteIds: list(text, 35), tactic,
   positions: (v) => v === undefined || object(v) && Object.entries(v).every(([id, p]) => text(id) && position(p)) });
 const attributes = shape(Object.fromEntries(['attack', 'midfield', 'defense', 'goalkeeping', 'speed', 'passing', 'finishing', 'stamina'].map((key) => [key, range(1, 99)])));
+const imageUrl: Check = (v) => {
+  if (!text(v)) return false;
+  if (/^\/api\/media\/[a-f0-9-]+$/.test(v as string)) return true;
+  try { const url = new URL(v as string); return url.protocol === 'https:' && url.hostname === 'media.api-sports.io'; } catch { return false; }
+};
+const importedImage: Check = (v) => shape({ sourceUrl: nullable(imageUrl), displayUrl: nullable(imageUrl), license: nullable(text) })(v)
+  && object(v) && (v.displayUrl === null || typeof v.license === 'string' && v.license.trim().length >= 5);
+const provider = oneOf('api-football', 'demo');
+const simulationConfig = shape({ minOverall: range(1, 95), maxOverall: range(1, 95), potentialBonus: range(0, 30), fitness: range(1, 100), morale: range(0, 100), unknownAge: range(16, 50) });
+const identity = (facts: Check) => optional(shape({ catalogId: text, provider, facts, observedAt: text, simulatedFields: list(text, 20) }));
+const playerIdentity = identity(shape({ externalId: range(0, 1e12), name: text, age: nullable(range(0, 200)), birthDate: nullable(text), nationality: nullable(text), position: nullable(text), number: nullable(range(0, 10000)), image: importedImage }));
+const clubIdentity = identity(shape({ externalId: range(0, 1e12), name: text, shortName: nullable(text), country: nullable(text), city: nullable(text), stadium: nullable(text), capacity: nullable(range(0, 1000000)), image: importedImage }));
 const player = shape({ id: text, name: text, age: range(16, 60), nationality: text, primaryPosition: position, secondaryPosition: nullable(position), attributes,
   overall: range(1, 99), fitness: bounded(0, 100), morale: range(0, 100), injury: nullable(shape({ description: text, remainingDays: range(1, 10000) })),
   discipline: shape({ yellowCards: range(0, 100), suspendedMatches: range(0, 100) }), contract: nullable(shape({ salary: range(0, 1e10), yearsRemaining: range(1, 5) })),
-  marketValue: range(0, 1e12), currentTeamId: nullable(text), potential: optional(range(1, 99)) });
+  marketValue: range(0, 1e12), currentTeamId: nullable(text), potential: optional(range(1, 99)), identity: playerIdentity });
 const team = shape({ id: text, name: text, city: text, division: oneOf(1, 2), squad: list(player, 60), budget: number, payroll: number, reputation: range(0, 100),
-  stadium: shape({ capacity: range(1, 1000000), ticketPrice: range(0, 100000) }), defaultTactic: tactic });
+  stadium: shape({ capacity: range(1, 1000000), ticketPrice: range(0, 100000) }), defaultTactic: tactic, identity: clubIdentity });
 const event: Check = (v) => object(v) && range(0, 90)(v.minute) && text(v.teamId) && (
   v.type === 'goal' && text(v.playerId) && nullable(text)(v.assistPlayerId) && (v.playerName === undefined || text(v.playerName))
   || v.type === 'card' && text(v.playerId) && oneOf('yellow', 'red')(v.card)
@@ -59,6 +71,7 @@ const league = shape({ id: text, name: text, teams: list(team, 40), schedule: li
 const command: Check = (v) => object(v) && range(0, 89)(v.minute) && (v.type === 'style' && oneOf('defensive', 'balanced', 'attacking')(v.style)
   || v.type === 'substitution' && text(v.outId) && text(v.inId));
 const career = shape({ league, otherLeague: league, selectedTeamId: text, seed: range(0, 0xffff_ffff), season: range(1, 1000), lineup: nullable(lineup),
+  source: optional(shape({ id: text, snapshotId: text, createdAt: text, providers: list(provider, 2), seasons: list(shape({ name: text, year: range(1900, 2200), division: oneOf(1, 2) }), 2), simulation: simulationConfig, importedClubs: range(1, 40), fictionalClubs: range(0, 39) })),
   finances: list(shape({ teamId: optional(text), season: integer, round: integer, description: text, amount: number, balance: number }), 300000),
   history: list(shape({ teamId: optional(text), teamName: optional(text), cupChampion: optional(text), season: integer, division: oneOf(1, 2), position: integer, points: integer, champion: text, topScorer: text, promoted: list(text, 4), relegated: list(text, 4) }), 1000),
   freeAgents: list(player, 1000), news: list(text, 20) });

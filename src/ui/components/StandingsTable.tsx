@@ -8,7 +8,7 @@ export function StandingsTable({ league, selectedTeamId, compact = false }: { le
   const teams = new Map(league.teams.map((team) => [team.id, team]));
   const columns: Column<LeagueStanding>[] = [
     { id: 'position', label: '#', render: (row) => <span className={row.qualified ? styles.qualifiedPosition : row.relegated ? styles.relegatedPosition : ''}>{row.position}</span> },
-    { id: 'club', label: 'Clube', render: (row) => <span className={styles.tableClub}><ClubBadge name={teams.get(row.teamId)!.name} /> <span>{teams.get(row.teamId)!.name}{row.teamId === selectedTeamId && <small className={styles.youTag}>VOCÊ</small>}</span></span> },
+    { id: 'club', label: 'Clube', render: (row) => <span className={styles.tableClub}><ClubBadge name={teams.get(row.teamId)!.name} image={teams.get(row.teamId)!.identity?.facts.image} /> <span>{teams.get(row.teamId)!.name}{row.teamId === selectedTeamId && <small className={styles.youTag}>VOCÊ</small>}</span></span> },
     { id: 'points', label: 'P', align: 'center', render: (row) => <strong>{row.points}</strong> },
     { id: 'played', label: 'J', align: 'center', render: (row) => row.played },
     ...(!compact ? [

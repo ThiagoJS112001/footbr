@@ -3,8 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": { "node": ">=22.19.0" },
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev.mjs",
+    "server": "node --env-file-if-exists=.env --import tsx server/index.ts",
+    "start": "node --env-file-if-exists=.env --import tsx server/index.ts",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "gen-league": "node --experimental-strip-types scripts/gen-league.mjs",
@@ -30,6 +33,7 @@
     "lucide-react": "^1.69.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "tsx": "^4.23.15",
     "zustand": "^5.0.16"
   }
 }

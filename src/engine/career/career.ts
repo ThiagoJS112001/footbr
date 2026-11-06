@@ -1,4 +1,5 @@
 import type { League, Lineup, Player, Team } from '../models';
+import type { CareerSource } from '../../data/catalog';
 import { generateLeague } from '../generators/league';
 import { generateTeam } from '../generators/team';
 import { calculateOverall } from '../generators/player';
@@ -36,6 +37,7 @@ export interface SeasonSummary {
   relegated: string[];
 }
 export interface Career {
+  source?: CareerSource;
   systems: CareerSystems;
   league: League;
   otherLeague: League;

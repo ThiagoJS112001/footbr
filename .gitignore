@@ -3,3 +3,10 @@ dist/
 coverage/
 *.local
 .tmp/
+.data/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
