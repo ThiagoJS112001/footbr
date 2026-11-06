@@ -34,7 +34,7 @@ export interface MatchEventBase {
 }
 
 export type MatchEvent = MatchEventBase & (
-  | { type: 'goal'; playerId: string; assistPlayerId: string | null }
+  | { type: 'goal'; playerId: string; playerName?: string; assistPlayerId: string | null }
   | { type: 'card'; playerId: string; card: 'yellow' | 'red' }
   | { type: 'injury'; playerId: string; description: string }
   | { type: 'substitution'; playerOutId: string; playerInId: string }
@@ -53,4 +53,7 @@ export interface Match {
   statistics: MatchStatistics | null;
   /** W.O. por falta de escalação elegível; não gera gols para artilheiros. */
   forfeitTeamIds?: string[];
+  penalties?: MatchScore;
+  winnerTeamId?: string;
+  styleChanges?: { minute: number; teamId: string; style: Tactic['style'] }[];
 }

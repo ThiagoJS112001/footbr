@@ -47,6 +47,8 @@ export interface Player {
   attributes: PlayerAttributes;
   /** Valor calculado a partir dos atributos; cálculo em uma etapa futura. */
   overall: number;
+  /** Teto de evolução; ausente nos saves anteriores à versão 2. */
+  potential?: number;
   /** Escala de 0 a 100. */
   morale: number;
   /** Escala de 0 a 100. */

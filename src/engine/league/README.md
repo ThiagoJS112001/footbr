@@ -1,5 +1,10 @@
 # Campeonato
 
+A camada [career](../career/README.md) coordena duas divisões, copa, economia,
+mercado, diretoria e transições. Este módulo mantém a simulação isolada da liga.
+O terceiro argumento opcional de `autoPickLineup` considera condição física
+para rotação; escalações preferidas continuam preservando escolhas elegíveis.
+
 ```ts
 import { generateLeague } from '../generators/league.ts';
 import { autoPickLineup, playRound, simulateSeason } from './index.ts';
@@ -24,7 +29,8 @@ finalizadas: pontos, vitórias, saldo e gols pró; depois, uma minitabela de pon
 saldo e gols pró dos clubes ainda empatados; por fim, sorteio reproduzível. Não
 usa comparação par a par para empates múltiplos. `position`, `qualified` e
 `relegated` indicam a situação atual, provisória até o final. Em ligas de 20
-clubes, quatro se classificam e quatro são rebaixados; nenhuma divisão é criada.
+clubes, as zonas dependem das regras da liga. A camada `career` cria duas
+divisões, com quatro acessos e quatro rebaixamentos na virada da temporada.
 
 `autoPickLineup(team)` resolve a atribuição ótima dos atletas às posições da
 formação, incluindo posições secundárias com desconto de 10%. A posição ocupada
@@ -32,6 +38,16 @@ formação, incluindo posições secundárias com desconto de 10%. A posição o
 titulares e do banco. Formações suportadas têm três ou quatro linhas, de um a
 cinco defensores/meias, até quatro atacantes e, quando houver, até quatro meias
 avançados. A soma deve ser dez, além do goleiro.
+
+`autoPickLineup(team, preferred)` preserva os titulares elegíveis da escalação
+anterior e repõe os desfalques. `validateLineup` valida uma escalação manual.
+`playRound(league, seed, lineups)` aceita escalações por ID de clube. Para jogos
+acompanhados, `startRound`, `stepRound` e `finishRound` usam as mesmas seeds e
+regras do avanço direto. Resultados incompletos não podem confirmar a rodada.
+
+`getPlayerSeasonStats` soma jogos, minutos e gols a partir das escalações e dos
+eventos, inclusive substituições e saídas por lesão/expulsão. A artilharia guarda
+o nome no evento do gol e mantém o clube de origem após transferências.
 
 Sem onze jogadores elegíveis nas posições necessárias, `autoPickLineup` lança
 `LineupUnavailableError`. O campeonato registra W.O. de 3–0 para o adversário;

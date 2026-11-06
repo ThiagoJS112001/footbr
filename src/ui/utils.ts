@@ -10,8 +10,15 @@ export const positionNames: Record<PlayerPosition, string> = {
 export const averageOverall = (team: Team) => team.squad.reduce((sum, player) => sum + player.overall, 0) / team.squad.length;
 export const currency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
 export const padRound = (round: number) => String(round).padStart(2, '0');
+/** O calendário do motor usa intervalos de sete dias. Esta é sua representação visual. */
+export function seasonDate(season: number, round: number, matchDay: boolean | number = false): string {
+  const offset = typeof matchDay === 'number' ? matchDay : matchDay ? 2 : 0;
+  const date = new Date(Date.UTC(2026 + season - 1, 0, 12 + (round - 1) * 7 + offset));
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(date).replaceAll(' de ', ' ').replaceAll('.', '');
+}
 export function matchOutcome(match: Match, teamId: string): 'V' | 'E' | 'D' {
   if (!match.score) throw new Error('Partida sem resultado.');
+  if (match.winnerTeamId) return match.winnerTeamId === teamId ? 'V' : 'D';
   const home = match.homeTeamId === teamId;
   const own = home ? match.score.home : match.score.away;
   const opponent = home ? match.score.away : match.score.home;

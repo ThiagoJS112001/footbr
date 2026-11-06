@@ -7,8 +7,8 @@ reservas precisam estar no elenco e sem lesão prévia. Cada time tem ID distint
 
 Retorna um `MatchResult` finalizado, com placar, escalações iniciais, eventos em
 ordem de minuto e estatísticas. Não altera os times recebidos. Expulsões e lesões
-afetam apenas o estado local da partida; persistir suas consequências na temporada
-fica para as etapas seguintes.
+afetam o estado local da partida; a camada `league` aplica suas consequências ao
+confirmar a rodada.
 
 As forças usam atributos dos jogadores ativos, ponderados por posição, moral,
 condição física, formação e marcação. Um jogador removido deixa de contribuir;
@@ -27,6 +27,19 @@ pela chance de superar o goleiro. Posse é a porcentagem dos 90 minutos de posse
 
 Todos os parâmetros de balanceamento estão em `config.ts`. Um quarto argumento
 opcional permite passar outra configuração sem alterar a configuração global.
+
+## Partidas acompanhadas
+
+`startMatch` cria uma sessão; `stepMatch` avança um minuto; `matchSnapshot` lê
+placar e estatísticas atuais; `finishMatch` conclui os minutos restantes.
+`changeMatchStyle` altera a postura e `substitutePlayer` troca um jogador ativo
+por um reserva elegível, respeitando posição e limite de cinco substituições.
+Todos retornam novos estados, sem alterar a entrada. `simulateMatch` usa o mesmo
+motor incremental até o final, preservando os sorteios da simulação em lote.
+
+A sessão guarda o estado do RNG. Decisões não sorteiam novamente o passado.
+Escalações no resultado representam o início da partida; o histórico de eventos
+registra as substituições para calcular corretamente a minutagem.
 
 `npm run sim-match -- 42` executa a demonstração com seed 42 (padrão: 2026).
 `npm test -- --reporter=verbose --silent=false` mostra as tabelas das baterias

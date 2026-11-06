@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { initialGameData, useGameStore } from '../../src/ui/store/gameStore';
+import { availableJobs } from '../../src/engine/career/board';
+import { careerOf } from '../../src/ui/store/gameStore';
+import { seasonComplete } from '../../src/engine/career/progression';
 
 beforeEach(() => useGameStore.setState({ ...initialGameData }));
 
@@ -20,7 +23,11 @@ describe('store do jogo', () => {
     useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[0].id);
     await Promise.all([useGameStore.getState().advanceRound(), useGameStore.getState().advanceRound()]);
     expect(useGameStore.getState().currentRound).toBe(2);
-    for (let index = 1; index < 38; index++) await useGameStore.getState().advanceRound();
+    for (let index = 0; !seasonComplete(careerOf(useGameStore.getState())) && index < 60; index++) {
+      if (useGameStore.getState().systems.board.status === 'dismissed') useGameStore.getState().acceptJob(availableJobs(careerOf(useGameStore.getState()))[0].id);
+      await useGameStore.getState().advanceRound();
+      expect(useGameStore.getState().error).toBeNull();
+    }
     const completed = useGameStore.getState().league!;
     expect(completed.schedule.flatMap((round) => round.matches).filter((match) => match.status === 'finished')).toHaveLength(380);
     expect(completed.standings.every((row) => row.played === 38)).toBe(true);

@@ -1,6 +1,7 @@
 import type { Lineup, Match, MatchEvent, MatchScore, MatchStatistics, TeamMatchStatistics } from '../models/Match.ts';
 import type { Player } from '../models/Player.ts';
 import type { Team } from '../models/Team.ts';
+import type { PlayingStyle } from '../models/Tactic.ts';
 import { createRng, pick } from '../generators/random.ts';
 import type { Rng } from '../generators/random.ts';
 import { simulationConfig } from './config.ts';
@@ -24,7 +25,7 @@ interface Side {
   active: Player[];
   bench: Player[];
   denominators: Record<Unit, number>;
-  yellows: Map<string, number>;
+  yellows: Record<string, number>;
   substitutions: number;
   possessionMinutes: number;
   goals: number;
@@ -59,7 +60,7 @@ function prepare(team: MatchTeam, config: SimulationConfig): Side {
   }
   return {
     team, active, bench: substituteIds.map((id) => squad.get(id)!), denominators,
-    yellows: new Map(), substitutions: 0, possessionMinutes: 0, goals: 0,
+    yellows: {}, substitutions: 0, possessionMinutes: 0, goals: 0,
     stats: { possession: 0, shots: 0, shotsOnTarget: 0, corners: 0, xG: 0 },
   };
 }
@@ -95,8 +96,8 @@ function disciplinaryEvents(side: Side, minute: number, rng: Rng, events: MatchE
     side.active = side.active.filter((candidate) => candidate.id !== player.id);
   } else if (draw < (config.redProbability + config.yellowProbability) * intensity) {
     const player = pick(rng, side.active);
-    const count = (side.yellows.get(player.id) ?? 0) + 1;
-    side.yellows.set(player.id, count);
+    const count = (side.yellows[player.id] ?? 0) + 1;
+    side.yellows[player.id] = count;
     events.push({ ...base, type: 'card', card: 'yellow', playerId: player.id });
     if (count >= config.yellowsForRed) {
       events.push({ ...base, type: 'card', card: 'red', playerId: player.id });
@@ -150,35 +151,111 @@ function shoot(attacking: Side, defending: Side, home: boolean, minute: number, 
     attacking.stats.shotsOnTarget++;
     if (rng() < goalChance) {
       attacking.goals++;
-      events.push({ minute, teamId: attacking.team.id, type: 'goal', playerId: shooter.id, assistPlayerId: null });
+      events.push({ minute, teamId: attacking.team.id, type: 'goal', playerId: shooter.id, playerName: shooter.name, assistPlayerId: null });
     } else if (rng() < config.cornerAfterSave) attacking.stats.corners++;
   } else if (rng() < config.cornerAfterMiss) attacking.stats.corners++;
 }
 
-/** Função pura: escalações, elencos e configuração de entrada não são alterados. */
-export function simulateMatch(home: MatchTeam, away: MatchTeam, seed: number, config: SimulationConfig = simulationConfig): MatchResult {
+export interface MatchSession {
+  id: string;
+  minute: number;
+  rngState: number;
+  home: Side;
+  away: Side;
+  events: MatchEvent[];
+  styleChanges: NonNullable<Match['styleChanges']>;
+  initialHomeLineup: Lineup;
+  initialAwayLineup: Lineup;
+  config: SimulationConfig;
+}
+
+export function startMatch(home: MatchTeam, away: MatchTeam, seed: number, config: SimulationConfig = simulationConfig): MatchSession {
   if (home.id === away.id) throw new Error('Os times devem ter IDs distintos.');
-  const rng = createRng(seed);
-  const h = prepare(home, config);
-  const a = prepare(away, config);
-  const events: MatchEvent[] = [];
-  for (let minute = 1; minute <= config.minutes; minute++) {
+  createRng(seed);
+  return {
+    id: `match-${home.id}-${away.id}-${seed}`, minute: 0, rngState: seed,
+    home: prepare(structuredClone(home), config), away: prepare(structuredClone(away), config), events: [], styleChanges: [],
+    initialHomeLineup: structuredClone(home.lineup), initialAwayLineup: structuredClone(away.lineup), config: structuredClone(config),
+  };
+}
+
+function tick(session: MatchSession): void {
+    const { home: h, away: a, events, config } = session;
+    if (session.minute >= config.minutes) return;
+    const minute = ++session.minute;
+    const generator = createRng(session.rngState);
+    const rng = () => { session.rngState = (session.rngState + 0x6d2b79f5) >>> 0; return generator(); };
     disciplinaryEvents(h, minute, rng, events, config);
     disciplinaryEvents(a, minute, rng, events, config);
-    const midfieldDifference = strength(h, 'midfield', config) * config.styles[home.lineup.tactic.style].midfield
-      - strength(a, 'midfield', config) * config.styles[away.lineup.tactic.style].midfield + config.homeAdvantage;
+    const midfieldDifference = strength(h, 'midfield', config) * config.styles[h.team.lineup.tactic.style].midfield
+      - strength(a, 'midfield', config) * config.styles[a.team.lineup.tactic.style].midfield + config.homeAdvantage;
     const homePossession = 1 / (1 + Math.exp(-midfieldDifference * config.possessionSensitivity));
     const hasBall = rng() < homePossession;
     const attacking = hasBall ? h : a;
     attacking.possessionMinutes++;
     shoot(attacking, hasBall ? a : h, hasBall, minute, rng, events, config);
-  }
-  h.stats.possession = round(h.possessionMinutes / config.minutes * 100, config.possessionDecimals);
-  a.stats.possession = round(100 - h.stats.possession, config.possessionDecimals);
-  for (const side of [h, a]) side.stats.xG = round(side.stats.xG, config.xGDecimals);
+}
+
+/** Um passo puro e serializável; nenhuma decisão sorteia novamente minutos passados. */
+export function stepMatch(session: MatchSession): MatchSession {
+  const next = structuredClone(session);
+  tick(next);
+  return next;
+}
+
+export function finishMatch(session: MatchSession): MatchSession {
+  const next = structuredClone(session);
+  while (next.minute < next.config.minutes) tick(next);
+  return next;
+}
+
+export function matchSnapshot(session: MatchSession): Match {
+  const { home: h, away: a, config } = session;
+  const homePossession = session.minute ? round(h.possessionMinutes / session.minute * 100, config.possessionDecimals) : 50;
   return {
-    id: `match-${home.id}-${away.id}-${seed}`, homeTeamId: home.id, awayTeamId: away.id,
-    status: 'finished', homeLineup: structuredClone(home.lineup), awayLineup: structuredClone(away.lineup),
-    score: { home: h.goals, away: a.goals }, events, statistics: { home: h.stats, away: a.stats },
+    id: session.id, homeTeamId: h.team.id, awayTeamId: a.team.id,
+    status: session.minute >= config.minutes ? 'finished' : 'in-progress',
+    homeLineup: structuredClone(session.initialHomeLineup), awayLineup: structuredClone(session.initialAwayLineup),
+    score: { home: h.goals, away: a.goals }, events: structuredClone(session.events),
+    styleChanges: structuredClone(session.styleChanges),
+    statistics: {
+      home: { ...h.stats, possession: homePossession, xG: round(h.stats.xG, config.xGDecimals) },
+      away: { ...a.stats, possession: round(100 - homePossession, config.possessionDecimals), xG: round(a.stats.xG, config.xGDecimals) },
+    },
   };
+}
+
+export function changeMatchStyle(session: MatchSession, teamId: string, style: PlayingStyle): MatchSession {
+  if (session.minute >= session.config.minutes) throw new Error('A partida já terminou.');
+  if (!['defensive', 'balanced', 'attacking'].includes(style)) throw new Error('Postura inválida.');
+  const next = structuredClone(session);
+  const side = next.home.team.id === teamId ? next.home : next.away.team.id === teamId ? next.away : null;
+  if (!side) throw new Error('Clube fora da partida.');
+  side.team.lineup.tactic.style = style;
+  next.styleChanges.push({ minute: session.minute, teamId, style });
+  return next;
+}
+
+export function substitutePlayer(session: MatchSession, teamId: string, outId: string, inId: string): MatchSession {
+  if (session.minute >= session.config.minutes) throw new Error('A partida já terminou.');
+  const next = structuredClone(session);
+  const side = next.home.team.id === teamId ? next.home : next.away.team.id === teamId ? next.away : null;
+  if (!side) throw new Error('Clube fora da partida.');
+  const outgoing = side.active.find((p) => p.id === outId);
+  const incoming = side.bench.find((p) => p.id === inId);
+  if (!outgoing || !incoming) throw new Error('Selecione um jogador em campo e um reserva disponível.');
+  if (side.substitutions >= next.config.maxSubstitutions) throw new Error('Limite de cinco substituições atingido.');
+  if (incoming.primaryPosition !== outgoing.primaryPosition && incoming.secondaryPosition !== outgoing.primaryPosition) throw new Error('O reserva não atua nessa posição.');
+  side.active = side.active.map((p) => p.id === outId ? { ...incoming, primaryPosition: outgoing.primaryPosition } : p);
+  side.bench = side.bench.filter((p) => p.id !== inId);
+  side.substitutions++;
+  next.events.push({ type: 'substitution', minute: next.minute, teamId, playerOutId: outId, playerInId: inId });
+  return next;
+}
+
+/** Mesmo motor incremental usado pela interface, executado até o apito final. */
+export function simulateMatch(home: MatchTeam, away: MatchTeam, seed: number, config: SimulationConfig = simulationConfig): MatchResult {
+  const session = startMatch(home, away, seed, config);
+  while (session.minute < config.minutes) tick(session);
+  return matchSnapshot(session) as MatchResult;
 }
