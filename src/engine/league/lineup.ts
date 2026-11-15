@@ -3,6 +3,7 @@ import type { PlayerPosition } from '../models/Player.ts';
 import type { Team } from '../models/Team.ts';
 import { calculateOverall } from '../generators/player.ts';
 import { leagueConfig } from './config.ts';
+import { playerTrait } from '../models/personality.ts';
 
 export class LineupUnavailableError extends Error {}
 
@@ -53,13 +54,14 @@ export function validateLineup(team: Team, lineup: Lineup): void {
 }
 
 /** Atribuição ótima de jogadores a posições (algoritmo Húngaro retangular). */
-export function autoPickLineup(team: Team, preferred?: Lineup, considerFitness = false): Lineup {
+export function autoPickLineup(team: Team, preferred?: Lineup, considerFitness = false, personality = true): Lineup {
   const slots = formationSlots(team.defaultTactic.formation);
   const players = team.squad.filter((player) => player.injury === null && player.discipline.suspendedMatches === 0)
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   if (players.length < slots.length) throw new LineupUnavailableError(`${team.name}: menos de 11 jogadores disponíveis.`);
   const costs = slots.map((position) => players.map((player) => {
-    const factor = player.primaryPosition === position ? 1 : player.secondaryPosition === position ? leagueConfig.secondaryPositionFactor : 0;
+    const versatile = personality && playerTrait(player) === 'versatile';
+    const factor = player.primaryPosition === position ? versatile ? .98 : 1 : player.secondaryPosition === position ? versatile ? .98 : leagueConfig.secondaryPositionFactor : 0;
     const keep = preferred?.starterIds.includes(player.id) && (preferred.positions?.[player.id] ?? player.primaryPosition) === position;
     const readiness = considerFitness ? .65 + player.fitness * .0035 : 1;
     return factor === 0 ? leagueConfig.unavailableCost : -calculateOverall(player.attributes, position) * factor * readiness - (keep ? 1000 : 0);

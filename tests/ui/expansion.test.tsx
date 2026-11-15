@@ -14,6 +14,7 @@ import { seasonSeed } from '../../src/engine/career/career';
 import type { Career } from '../../src/engine/career/career';
 import type { Lineup } from '../../src/engine/models';
 import { saveKey } from '../../src/ui/store/gameStore';
+import { prospectReport } from '../../src/engine/career/academy';
 
 beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); });
 afterEach(cleanup);
@@ -74,7 +75,9 @@ describe('decisões rápidas de carreira na interface', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Categorias de Base' }));
     await user.click(screen.getByRole('button', { name: `Avaliar ${prospect.player.name}` }));
-    expect(screen.getByText(`${prospect.player.potential} · teto estimado`)).toBeInTheDocument();
+    const report = prospectReport(prospect.player, ownTeam(careerOf(useGameStore.getState())));
+    expect(screen.getByText(`${report.low}–${report.high} · faixa estimada`)).toBeInTheDocument();
+    expect(screen.queryByText(`${prospect.player.potential} · teto estimado`)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: `Promover ${prospect.player.name}` }));
     expect(useGameStore.getState().error).toBeNull();
     expect(useGameStore.getState().systems.academy.promoted).toBe(1);

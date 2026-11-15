@@ -1,11 +1,12 @@
 import type { Lineup, Match, MatchEvent, MatchScore, MatchStatistics, TeamMatchStatistics } from '../models/Match.ts';
-import type { Player } from '../models/Player.ts';
+import type { Player, PlayerPosition } from '../models/Player.ts';
 import type { Team } from '../models/Team.ts';
 import type { PlayingStyle } from '../models/Tactic.ts';
 import { createRng, pick } from '../generators/random.ts';
 import type { Rng } from '../generators/random.ts';
 import { simulationConfig } from './config.ts';
 import type { SimulationConfig } from './config.ts';
+import { matchFatigue, playerTrait, traitStrength } from '../models/personality.ts';
 
 export interface MatchTeam extends Team {
   lineup: Lineup;
@@ -21,6 +22,7 @@ export interface MatchResult extends Match {
 
 type Unit = 'defense' | 'midfield' | 'attack';
 interface Side {
+  naturalPositions: Record<string, PlayerPosition>;
   team: MatchTeam;
   active: Player[];
   bench: Player[];
@@ -59,6 +61,7 @@ function prepare(team: MatchTeam, config: SimulationConfig): Side {
     }
   }
   return {
+    naturalPositions: Object.fromEntries(team.squad.map((p) => [p.id, p.primaryPosition])),
     team, active, bench: substituteIds.map((id) => squad.get(id)!), denominators,
     yellows: {}, substitutions: 0, possessionMinutes: 0, goals: 0,
     stats: { possession: 0, shots: 0, shotsOnTarget: 0, corners: 0, xG: 0 },
@@ -66,14 +69,17 @@ function prepare(team: MatchTeam, config: SimulationConfig): Side {
 }
 
 function strength(side: Side, unit: Unit, config: SimulationConfig): number {
+  const leader = config.personality !== false && side.active.some((player) => playerTrait(player) === 'leader');
   const total = side.active.reduce((sum, player) => {
     const a = player.attributes;
     const value = unit === 'defense' ? a.defense
       : unit === 'attack' ? a.attack * config.attackAttributes.attack + a.passing * config.attackAttributes.passing
         : a.midfield * config.midfieldAttributes.midfield + a.passing * config.midfieldAttributes.passing;
-    const morale = 1 + (player.morale - config.neutralMorale) * config.moraleEffect;
+    const morale = 1 + (player.morale - config.neutralMorale) * config.moraleEffect * (leader && player.morale < config.neutralMorale ? .5 : 1);
     const fitness = 1 + (player.fitness - config.neutralFitness) * config.fitnessEffect;
-    return sum + value * config.roles[player.primaryPosition][unit] * morale * fitness;
+    const versatile = playerTrait(player) === 'versatile';
+    const positional = config.personality === false ? 1 : side.naturalPositions[player.id] === player.primaryPosition ? versatile ? .98 : 1 : versatile ? .98 : .9;
+    return sum + value * config.roles[player.primaryPosition][unit] * morale * fitness * positional * (config.personality === false ? 1 : traitStrength(player, unit, side.team.lineup.tactic.style));
   }, 0);
   const lines = side.team.lineup.tactic.formation.split('-').map(Number);
   const count = unit === 'defense' ? lines[0] : unit === 'attack' ? lines[lines.length - 1]
@@ -110,7 +116,7 @@ function disciplinaryEvents(side: Side, minute: number, rng: Rng, events: MatchE
     side.active = side.active.filter((candidate) => candidate.id !== player.id);
     const replacement = side.bench.find((candidate) => candidate.primaryPosition === player.primaryPosition);
     if (replacement && side.substitutions < config.maxSubstitutions) {
-      side.active.push(replacement);
+      side.active.push({ ...replacement });
       side.bench = side.bench.filter((candidate) => candidate.id !== replacement.id);
       side.substitutions++;
       events.push({ ...base, type: 'substitution', playerOutId: player.id, playerInId: replacement.id });
@@ -118,7 +124,7 @@ function disciplinaryEvents(side: Side, minute: number, rng: Rng, events: MatchE
   }
 }
 
-function shoot(attacking: Side, defending: Side, home: boolean, minute: number, rng: Rng, events: MatchEvent[], config: SimulationConfig): void {
+function shoot(attacking: Side, defending: Side, home: boolean, minute: number, rng: Rng, events: MatchEvent[], commentary: NonNullable<Match['commentary']>, config: SimulationConfig): void {
   const shooters = attacking.active.filter((player) => config.roles[player.primaryPosition].shooter > 0);
   if (!shooters.length) return;
   const advantage = home ? config.homeAdvantage : -config.homeAdvantage;
@@ -138,25 +144,35 @@ function shoot(attacking: Side, defending: Side, home: boolean, minute: number, 
   const keeper = defending.active.find((player) => player.primaryPosition === 'GK');
   const keeperSkill = keeper?.attributes.goalkeeping
     ?? Math.max(config.strengthFloor, ...defending.active.map((player) => player.attributes.goalkeeping));
+  const finishing = Math.min(99, shooter.attributes.finishing + (config.personality !== false && playerTrait(shooter) === 'finisher' ? 4 : 0));
   const targetChance = clamp(config.onTargetProbability * Math.exp(
-    (shooter.attributes.finishing - strength(defending, 'defense', config) + advantage) * config.onTargetSensitivity,
+    (finishing - strength(defending, 'defense', config) + advantage) * config.onTargetSensitivity,
   ), config.onTargetMin, config.onTargetMax);
   const goalChance = clamp(config.goalOnTargetProbability * Math.exp(
-    (shooter.attributes.finishing - keeperSkill + advantage) * config.keeperSensitivity,
+    (finishing - keeperSkill + advantage) * config.keeperSensitivity,
   ), config.goalMin, config.goalMax);
   attacking.stats.shots++;
   // xG é a probabilidade do gol antes de sortear o resultado da finalização.
   attacking.stats.xG += targetChance * goalChance;
+  const chance = targetChance * goalChance >= .16;
+  const base = { minute, teamId: attacking.team.id, playerId: shooter.id, playerName: shooter.name };
   if (rng() < targetChance) {
     attacking.stats.shotsOnTarget++;
     if (rng() < goalChance) {
       attacking.goals++;
       events.push({ minute, teamId: attacking.team.id, type: 'goal', playerId: shooter.id, playerName: shooter.name, assistPlayerId: null });
-    } else if (rng() < config.cornerAfterSave) attacking.stats.corners++;
-  } else if (rng() < config.cornerAfterMiss) attacking.stats.corners++;
+    } else {
+      commentary.push({ ...base, kind: 'save', text: `${chance ? 'Grande chance! ' : ''}${shooter.name} finaliza e ${keeper?.name ?? 'o goleiro improvisado'} defende.` });
+      if (rng() < config.cornerAfterSave) attacking.stats.corners++;
+    }
+  } else {
+    commentary.push({ ...base, kind: chance ? 'chance' : 'miss', text: `${chance ? 'Chance clara! ' : ''}${shooter.name} finaliza para fora.` });
+    if (rng() < config.cornerAfterMiss) attacking.stats.corners++;
+  }
 }
 
 export interface MatchSession {
+  commentary: NonNullable<Match['commentary']>;
   id: string;
   minute: number;
   rngState: number;
@@ -173,7 +189,7 @@ export function startMatch(home: MatchTeam, away: MatchTeam, seed: number, confi
   if (home.id === away.id) throw new Error('Os times devem ter IDs distintos.');
   createRng(seed);
   return {
-    id: `match-${home.id}-${away.id}-${seed}`, minute: 0, rngState: seed,
+    id: `match-${home.id}-${away.id}-${seed}`, minute: 0, rngState: seed, commentary: [],
     home: prepare(structuredClone(home), config), away: prepare(structuredClone(away), config), events: [], styleChanges: [],
     initialHomeLineup: structuredClone(home.lineup), initialAwayLineup: structuredClone(away.lineup), config: structuredClone(config),
   };
@@ -183,6 +199,7 @@ function tick(session: MatchSession): void {
     const { home: h, away: a, events, config } = session;
     if (session.minute >= config.minutes) return;
     const minute = ++session.minute;
+    if (config.personality !== false) for (const side of [h, a]) for (const player of side.active) player.fitness = Math.max(0, player.fitness - matchFatigue(player, 1));
     const generator = createRng(session.rngState);
     const rng = () => { session.rngState = (session.rngState + 0x6d2b79f5) >>> 0; return generator(); };
     disciplinaryEvents(h, minute, rng, events, config);
@@ -193,7 +210,12 @@ function tick(session: MatchSession): void {
     const hasBall = rng() < homePossession;
     const attacking = hasBall ? h : a;
     attacking.possessionMinutes++;
-    shoot(attacking, hasBall ? a : h, hasBall, minute, rng, events, config);
+    shoot(attacking, hasBall ? a : h, hasBall, minute, rng, events, session.commentary, config);
+    if (minute % 10 === 0) for (const side of [h, a]) {
+      const shots = session.commentary.filter((e) => e.teamId === side.team.id && e.minute > minute - 10 && e.kind !== 'pressure').length
+        + events.filter((e) => e.type === 'goal' && e.teamId === side.team.id && e.minute > minute - 10).length;
+      if (shots >= 3) session.commentary.push({ minute, teamId: side.team.id, kind: 'pressure', text: `${side.team.name} pressiona: ${shots} finalizações nos últimos dez minutos.` });
+    }
 }
 
 /** Um passo puro e serializável; nenhuma decisão sorteia novamente minutos passados. */
@@ -217,6 +239,7 @@ export function matchSnapshot(session: MatchSession): Match {
     status: session.minute >= config.minutes ? 'finished' : 'in-progress',
     homeLineup: structuredClone(session.initialHomeLineup), awayLineup: structuredClone(session.initialAwayLineup),
     score: { home: h.goals, away: a.goals }, events: structuredClone(session.events),
+    commentary: structuredClone(session.commentary),
     styleChanges: structuredClone(session.styleChanges),
     statistics: {
       home: { ...h.stats, possession: homePossession, xG: round(h.stats.xG, config.xGDecimals) },

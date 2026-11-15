@@ -6,6 +6,7 @@ import { changeMatchStyle, finishMatch, matchSnapshot, startMatch, stepMatch, su
 import { simulationConfig } from '../src/engine/simulation/config';
 import { decodeSave, encodeSave } from '../src/engine/save/save';
 import { playCupRound } from '../src/engine/career/cup';
+import { signingInterest } from '../src/engine/career/market';
 
 const setup = () => {
   const c = createCareer(42);
@@ -69,7 +70,7 @@ describe('carreira e decisões de jogo', () => {
     const player = seller.squad[0];
     const buyer = c.league.teams.find((t) => t.id === c.selectedTeamId)!;
     const offer = askingPrice(player);
-    const salary = Math.ceil(player.contract!.salary * 1.1 / 100) * 100;
+    const salary = signingInterest(player, buyer, seller).salary;
     const before = structuredClone(c);
     expect(() => buyPlayer(c, player.id, offer - 1000, salary, 3, 1)).toThrow('Contraproposta');
     expect(() => buyPlayer(c, player.id, offer, 100, 3, 1)).toThrow('salário');

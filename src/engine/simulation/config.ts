@@ -66,4 +66,4 @@ export const simulationConfig = {
   midfieldAttributes: { midfield: 0.6, passing: 0.4 },
 };
 
-export type SimulationConfig = typeof simulationConfig;
+export type SimulationConfig = typeof simulationConfig & { personality?: boolean };

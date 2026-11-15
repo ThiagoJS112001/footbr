@@ -9,6 +9,10 @@ import { careerOf } from '../store/gameStore';
 import { dueCupRound } from '../../engine/career/cup';
 import { positionLabels } from '../utils';
 import styles from '../App.module.css';
+import { presetLabels } from '../../engine/career/preparation';
+import type { LineupPreset } from '../../engine/career/preparation';
+import { PreparationChecklist } from '../components/PreparationChecklist';
+import { playerTrait, traitInfo } from '../../engine/models/personality';
 
 export function LineupScreen({ team }: { team: Team }) {
   const state = useGameStore();
@@ -16,7 +20,7 @@ export function LineupScreen({ team }: { team: Team }) {
   const cup = dueCupRound(careerOf(state));
   let lineup = saved;
   let unavailable = '';
-  try { lineup ??= autoPickLineup(team); } catch (error) { unavailable = (error as Error).message; }
+  try { lineup ??= autoPickLineup(team, undefined, true); } catch (error) { unavailable = (error as Error).message; }
   const complete = league!.schedule.every((r) => r.matches.every((m) => m.status === 'finished'));
   const slots = formationSlots(team.defaultTactic.formation);
   const available = team.squad.filter((p) => !p.injury && !p.discipline.suspendedMatches);
@@ -26,6 +30,8 @@ export function LineupScreen({ team }: { team: Team }) {
   return <>
     <PageHeader eyebrow="ANTES DO APITO" title="Escalação e tática" description="Escolha os 11 e marque quem vai para o banco. A formação deve respeitar as posições dos jogadores." />
     {cup && <p className={styles.notice}>Próximo compromisso: {systems.cup.name} · {cup.name}. Considere poupar jogadores cansados.</p>}
+    <PreparationChecklist team={team} lineup={lineup} career={careerOf(state)} />
+    <div className={styles.presetBar} aria-label="Escalações salvas">{(Object.keys(presetLabels) as LineupPreset[]).map((name) => <div className={styles.presetSlot} key={name}><strong>{presetLabels[name]}</strong><button className={styles.secondaryButton} disabled={!systems.savedLineups.some((p) => p.name === name && p.teamId === team.id)} onClick={() => state.loadPreset(name)}>Usar {presetLabels[name]}</button><button className={styles.textButton} disabled={!lineup} onClick={() => state.savePreset(name)}>Salvar {presetLabels[name]}</button></div>)}</div>
     <section className={styles.panel}>
       <div className={styles.controls}>
         <label className={styles.filterLabel}>Formação<select value={tactic.formation} onChange={(e) => updateTactic({ formation: e.target.value as Tactic['formation'] })}>{formations.map((f) => <option key={f}>{f}</option>)}</select></label>
@@ -45,7 +51,7 @@ export function LineupScreen({ team }: { team: Team }) {
             <span className={styles.positionTag}>{positionLabels[position]}</span>
             <select aria-label={`Titular ${index + 1} · ${positionLabels[position]}`} value={lineup?.starterIds[index] ?? ''} onChange={(e) => pickPlayer(index, e.target.value)}>
               {!lineup && <option value="">Sem jogador</option>}
-              {available.filter((p) => p.primaryPosition === position || p.secondaryPosition === position).sort((a, b) => b.overall - a.overall).map((p) => <option value={p.id} key={p.id}>{p.name} · F {p.overall} · {Math.round(p.fitness)}%{p.primaryPosition !== position ? ' · secundária' : ''}</option>)}
+              {available.filter((p) => p.primaryPosition === position || p.secondaryPosition === position).sort((a, b) => b.overall - a.overall).map((p) => <option value={p.id} key={p.id}>{p.name} · F {p.overall} · {Math.round(p.fitness)}% · {traitInfo[playerTrait(p)].label}{p.primaryPosition !== position ? ' · secundária' : ''}</option>)}
             </select>
           </label>)}
         </div>

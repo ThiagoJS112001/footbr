@@ -14,11 +14,18 @@ import { Panel } from '../components/Panel';
 import { ConditionRing } from '../components/ConditionRing';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import styles from '../App.module.css';
+import { autoPickLineup } from '../../engine/league';
+import { clubProfile, profileInfo } from '../../engine/models/personality';
+import { rivalryBetween } from '../../engine/career/stories';
+import { PreparationChecklist } from '../components/PreparationChecklist';
 
 export function Dashboard({ league, team }: { league: League; team: Team }) {
   const state = useGameStore();
   const { currentRound, season, isAdvancing, navigate, beginNextSeason, news, finances, systems } = state;
   const career = careerOf(state);
+  let readyLineup = state.lineup;
+  try { readyLineup ??= autoPickLineup(team, undefined, true); } catch { /* Os avisos explicam a falta de escalação. */ }
+  const profile = profileInfo[clubProfile(team)];
   const cup = dueCupRound(career);
   const standing = league.standings.find((row) => row.teamId === team.id)!;
   const pending = league.schedule.find((round) => round.matches.some((match) => match.status !== 'finished'));
@@ -51,16 +58,19 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
     </div>
     {champion && <section role="status" className={styles.seasonEnd}><Icon name="standings" size={30} /><div><h2>Temporada encerrada</h2><p>Campeão: <strong>{champion.name}</strong>. Seu clube terminou em {standing.position}º lugar. Revise os contratos antes de continuar.</p><button className={styles.primaryButton} onClick={beginNextSeason}>Começar próxima temporada</button></div></section>}
     <RoundReview compact />
+    <div className={styles.clubIdentity}><span className={styles.traitBadge}>{profile.label}</span><span>{profile.description}</span></div>
+    {!seasonComplete(career) && <PreparationChecklist team={team} lineup={readyLineup} career={career} />}
     {(offers > 0 || systems.board.confidence < 35) && <div className={styles.pendingActions}>{offers > 0 && <button className={styles.secondaryButton} onClick={() => navigate('market')}>{offers} proposta(s) para seus jogadores</button>}{systems.board.confidence < 35 && <button className={styles.secondaryButton} onClick={() => navigate('board')}>Diretoria: {systems.board.confidence}% de confiança</button>}</div>}
     <div className={styles.dashboardLayout}>
       <div className={styles.dashboardMain}>
         <Panel title="Próxima Partida" icon={cup ? 'cup' : 'calendar'} className={styles.nextMatchPanel} action={<span className={styles.subtleTag}>{cup ? 'COPA' : pending ? `RODADA ${padRound(currentRound)}` : 'ENCERRADA'}</span>}>
           {nextMatch && homeTeam && awayTeam ? <>
             <p className={styles.matchMeta}>{cup ? `${systems.cup.name} · ${cup.name}` : `${league.name} · ${currentRound <= league.schedule.length / 2 ? 'Turno' : 'Returno'}`}</p>
+            {rivalryBetween(career, homeTeam.id, awayTeam.id) && <p className={styles.derbyTag}>DIA DE CLÁSSICO · {rivalryBetween(career, homeTeam.id, awayTeam.id)!.reason}</p>}
             <div className={styles.matchup}><div><ClubBadge name={homeTeam.name} image={homeTeam.identity?.facts.image} size="large" /><strong>{homeTeam.name}</strong></div><span className={styles.versus}>×</span><div><ClubBadge name={awayTeam.name} image={awayTeam.identity?.facts.image} size="large" /><strong>{awayTeam.name}</strong></div></div>
             <div className={styles.fixtureDetails}><span><Icon name="calendar" size={16} />{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : true, state.source?.seasons[0]?.year)}</span><span><Icon name="stadium" size={16} />{homeTeam.city}</span></div>
           </> : <div className={styles.finishedMessage}>{champion ? 'Mais uma temporada entrou para a história.' : 'Seu clube folga nesta rodada.'}</div>}
-          <div className={styles.matchAction}><button className={styles.primaryButton} onClick={() => navigate('lineup')} disabled={isAdvancing || !pending && !cup || systems.board.status === 'dismissed'}><Icon name="lineup" size={20} />{isAdvancing ? 'Simulando…' : pending || cup ? 'Preparar partida' : 'Temporada concluída'}</button></div>
+          <div className={styles.matchAction}><button className={styles.primaryButton} onClick={state.kickOff} disabled={isAdvancing || !readyLineup || !pending && !cup || systems.board.status === 'dismissed'}><Icon name="match" size={20} />Jogar com a escalação atual</button><button className={styles.secondaryButton} onClick={() => navigate('lineup')} disabled={isAdvancing || !pending && !cup || systems.board.status === 'dismissed'}><Icon name="lineup" size={20} />{pending || cup ? 'Preparar partida' : 'Temporada concluída'}</button></div>
         </Panel>
         <Panel title={`Classificação · Divisão ${team.division}`} icon="standings" className={styles.dashboardStandings} footer={link('Ver tabela completa', () => navigate('standings'))}>
           <div className={styles.compactStandings}><StandingsTable league={league} selectedTeamId={team.id} compact /></div>

@@ -6,6 +6,8 @@ import type { Academy } from './types';
 import { addFinance } from './career';
 import { careerConfig as config } from './config';
 import { ownTeam, replaceTeams, requireManagedClub } from './world';
+import { clubProfile, identityHash } from '../models/personality';
+import { rosterSize } from './market';
 
 export function createAcademy(team: Team | undefined, seed: number, season: number): Academy {
   if (!team) return { teamId: null, season, promoted: 0, prospects: [] };
@@ -17,7 +19,7 @@ export function createAcademy(team: Team | undefined, seed: number, season: numb
   return { teamId: team.id, season, promoted: 0, prospects: positions.slice(0, config.academyProspects).map((position, i) => {
     const player = academy.squad.find((p) => p.primaryPosition === position)!;
     return { assessed: false, status: 'available', player: { ...player, id: `${team.id}-prospect-${season}-${i}`, currentTeamId: null, contract: null,
-      age: randomInt(rng, 16, 18), potential: Math.min(94, player.overall + randomInt(rng, 4, 23)), fitness: 100 } };
+      age: randomInt(rng, 16, 18), potential: Math.min(94, player.overall + randomInt(rng, 4, 23) + (clubProfile(team) === 'academy' ? 3 : 0)), fitness: 100 } };
   }) };
 }
 export function assessProspect(career: Career, playerId: string, round: number): Career {
@@ -36,14 +38,25 @@ export function promoteProspect(career: Career, playerId: string, round: number)
   const team = ownTeam(career);
   if (!prospect || prospect.status !== 'available') throw new Error('Jovem indisponível para promoção.');
   if (academy.promoted >= config.maxPromotions) throw new Error('Limite de três promoções nesta temporada atingido.');
-  if (team.squad.length >= 35 || team.squad.some((p) => p.id === playerId)) throw new Error('Não há vaga disponível no elenco.');
+  if (rosterSize(career, team.id) >= 35 || team.squad.some((p) => p.id === playerId)) throw new Error('Não há vaga disponível no elenco.');
   const salary = prospectSalary(prospect.player.overall);
   if (team.budget < salary * 2) throw new Error('Saldo insuficiente para as luvas de promoção.');
-  const player = { ...prospect.player, currentTeamId: team.id, contract: { salary, yearsRemaining: 3 } };
+  const player = { ...prospect.player, academyClubId: team.id, currentTeamId: team.id, contract: { salary, yearsRemaining: 3 } };
   let next = replaceTeams(career, [{ ...team, squad: [...team.squad, player] }]);
   next = addFinance(next, team.id, round, `Promoção da base · ${player.name}`, -salary * 2);
   return { ...next, news: [`${player.name} foi promovido ao elenco profissional.`, ...next.news].slice(0, 20), systems: { ...next.systems,
     academy: { ...academy, promoted: academy.promoted + 1, prospects: academy.prospects.map((p) => p.player.id === playerId ? { ...p, status: 'promoted' } : p) } } };
+}
+
+export function prospectReport(player: import('../models').Player, team: Team) {
+  const estimated = (player.potential ?? player.overall) + identityHash(player.id) % 7 - 3;
+  const low = Math.max(player.overall, estimated - 6);
+  const high = Math.min(99, Math.max(low, estimated + 6));
+  const peers = team.squad.filter((p) => p.primaryPosition === player.primaryPosition).sort((a, b) => b.overall - a.overall);
+  const baseline = peers[1]?.overall ?? peers[0]?.overall ?? 0;
+  return { low, high, readiness: player.overall >= baseline ? 'Pronto para disputar uma vaga no banco.' : 'Precisa de minutos e desenvolvimento antes de competir com os profissionais.',
+    development: high - player.overall >= 15 ? 'Grande margem estimada de evolução.' : 'Margem estimada de evolução moderada.',
+    uncertainty: 'Faixa estimada pelo departamento de base; minutos, idade e desenvolvimento determinam o resultado.' };
 }
 export function releaseProspect(career: Career, playerId: string): Career {
   requireManagedClub(career);

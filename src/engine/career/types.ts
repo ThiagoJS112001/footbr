@@ -1,6 +1,7 @@
-import type { Match, Player } from '../models';
+import type { Lineup, Match, Player, PlayerContract } from '../models';
 
 export interface TransferOffer {
+  countered?: boolean;
   id: string; playerId: string; playerName: string; buyerId: string; amount: number;
   season: number; round: number; expiresRound: number; status: 'pending' | 'accepted' | 'rejected' | 'expired';
 }
@@ -37,6 +38,11 @@ export interface RoundSummary {
   position: number; positionChange: number; points: number; moneyChange: number; absences: string[]; notes: string[];
 }
 export interface CareerSystems {
+  savedLineups: { teamId: string; name: 'main' | 'reserve' | 'cup'; lineup: Lineup }[];
+  watchlist: { playerId: string; playerName: string; value: number; clubId: string | null }[];
+  loans: { id: string; playerId: string; playerName: string; fromId: string; toId: string; season: number; round: number; fee: number; contract: PlayerContract; status: 'active' | 'returned' }[];
+  rivalries: { teamIds: [string, string]; intensity: number; reason: string }[];
+  milestones: { id: string; playerId: string; playerName: string; teamId: string; relatedTeamId?: string; season: number; round: number; kind: 'debut' | 'first-goal' | 'title' | 'transfer' | 'reunion'; text: string }[];
   marketRound: number; offers: TransferOffer[]; transfers: TransferRecord[]; academy: Academy; board: Board; cup: Cup;
   playerHistory: PlayerSeasonRecord[]; clubHistory: ClubSeasonRecord[]; lastSummary: RoundSummary | null;
   jobs: { season: number; round: number; fromId: string; toId: string }[];

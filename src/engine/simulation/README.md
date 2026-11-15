@@ -15,6 +15,8 @@ condição física, formação e marcação. Um jogador removido deixa de contri
 o denominador da força permanece o da escalação inicial. Sem goleiro, o melhor
 atributo de goleiro dos jogadores restantes representa um goleiro improvisado.
 
+Especialidades e suas contrapartidas estão em `models/personality.ts`. A posição secundária conserva 90% da contribuição, ou 98% para polivalentes, que perdem 2% na principal. Líderes reduzem a penalidade de moral sem acumular o efeito. O fôlego determina o desgaste por minuto e a aplicação do desgaste ao confirmar a rodada. A sessão é uma cópia independente: atualizar a condição em campo não altera o elenco da carreira antes da confirmação.
+
 O estilo ofensivo aumenta a chance de finalizar e a exposição a finalizações.
 O defensivo reduz ambas. Reservas entram automaticamente por posição principal
 em caso de lesão, até cinco substituições. Sem reserva compatível, o time segue
@@ -25,8 +27,11 @@ como consequência de uma defesa ou chute bloqueado/desviado; não geram um lanc
 extra. O xG aproximado soma, por chute, a chance de acertar o alvo multiplicada
 pela chance de superar o goleiro. Posse é a porcentagem dos 90 minutos de posse.
 
+`commentary` é separado dos eventos disciplinares e gols. Cada chute sem gol gera uma defesa ou finalização para fora; xG de pelo menos 0,16 destaca uma chance clara. Três finalizações em dez minutos geram um relato de pressão. A narração não consome sorteios adicionais.
+
 Todos os parâmetros de balanceamento estão em `config.ts`. Um quarto argumento
 opcional permite passar outra configuração sem alterar a configuração global.
+`personality: false` preserva as forças e a condição do motor anterior para terminar partidas carregadas de saves antigos. Saves atuais registram `progress.engineVersion`; a partida seguinte sempre usa as novas regras.
 
 ## Partidas acompanhadas
 

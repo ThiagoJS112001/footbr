@@ -3,10 +3,13 @@ import type { Career } from './career';
 import type { Board } from './types';
 import { createAcademy } from './academy';
 import { completedRounds, ownTeam, worldTeams } from './world';
+import { clubProfile } from '../models/personality';
+import { minutesPlayed } from '../league/season';
 
 export function createBoard(team: Team | undefined, league: League, round = 0): Board {
   const rank = team ? 1 + league.teams.filter((t) => t.reputation > team.reputation).length : 10;
-  return { teamId: team?.id ?? null, targetPosition: Math.max(4, Math.min(16, rank + 3)), confidence: 65, status: 'active', lastReviewRound: round, appointedRound: round, startingPoints: league.standings.find((r) => r.teamId === team?.id)?.points ?? 0, reviews: [] };
+  const adjustment = !team ? 0 : clubProfile(team) === 'traditional' ? -2 : clubProfile(team) === 'community' ? -1 : 1;
+  return { teamId: team?.id ?? null, targetPosition: Math.max(4, Math.min(16, rank + 3 + adjustment)), confidence: 65, status: 'active', lastReviewRound: round, appointedRound: round, startingPoints: league.standings.find((r) => r.teamId === team?.id)?.points ?? 0, reviews: [] };
 }
 export function evaluateBoard(career: Career, round: number): Career {
   const board = career.systems.board;
@@ -17,9 +20,13 @@ export function evaluateBoard(career: Career, round: number): Career {
   const ratio = (row.points - (board.startingPoints ?? 0)) / Math.max(1, row.played - board.appointedRound) / targetPpg;
   const performance = ratio >= 1 ? 8 : ratio >= .85 ? 2 : ratio >= .65 ? -6 : -12;
   const debtPenalty = team.budget < 0 ? Math.min(8, 2 + Math.floor(-team.budget / Math.max(1, team.payroll))) : 0;
-  const confidence = Math.max(0, Math.min(100, board.confidence + performance - debtPenalty));
+  const youthIds = new Set(team.squad.filter((p) => p.age <= 21).map((p) => p.id));
+  const youthMinutes = career.league.schedule.filter((r) => r.round > board.lastReviewRound && r.round <= round).flatMap((r) => r.matches)
+    .filter((m) => m.homeTeamId === team.id || m.awayTeamId === team.id).reduce((sum, m) => sum + [...minutesPlayed(m, team.id)].filter(([id]) => youthIds.has(id)).reduce((s, [, minutes]) => s + minutes, 0), 0);
+  const youthBonus = clubProfile(team) === 'academy' && youthMinutes >= 360 ? 3 : 0;
+  const confidence = Math.max(0, Math.min(100, board.confidence + performance - debtPenalty + youthBonus));
   const dismissed = confidence <= 15;
-  const note = dismissed ? 'A diretoria encerrou seu vínculo. Escolha uma proposta para continuar a carreira.' : `${row.position}º lugar, meta até ${board.targetPosition}º. ${team.budget < 0 ? 'A dívida também reduziu a confiança.' : performance >= 0 ? 'A diretoria reconhece o desempenho.' : 'A diretoria espera uma recuperação.'}`;
+  const note = dismissed ? 'A diretoria encerrou seu vínculo. Escolha uma proposta para continuar a carreira.' : `${row.position}º lugar, meta até ${board.targetPosition}º. ${team.budget < 0 ? 'A dívida também reduziu a confiança.' : performance >= 0 ? 'A diretoria reconhece o desempenho.' : 'A diretoria espera uma recuperação.'}${youthBonus ? ' A utilização dos sub-21 trouxe mais 3 pontos de confiança.' : ''}`;
   return { ...career, news: [note, ...career.news].slice(0, 20), systems: { ...career.systems, board: { ...board, confidence, status: dismissed ? 'dismissed' : 'active', lastReviewRound: round, reviews: [...board.reviews, { round, confidence, note }] } } };
 }
 export function availableJobs(career: Career): Team[] {

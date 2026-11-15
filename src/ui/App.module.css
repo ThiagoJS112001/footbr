@@ -1,6 +1,35 @@
 .muted { color: var(--muted); font-size: 13px; line-height: 1.7; }
 .accent, .brandAccent { color: var(--accent-text); }
 .loss { color: var(--danger); }
+.traitBadge { display: inline-flex; align-items: center; width: fit-content; padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text); font-size: 10px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.clubIdentity { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.preparationNotice { margin: 0 0 20px; padding: 15px 18px; border: 1px solid var(--warning-line); border-left: 3px solid var(--warning); border-radius: var(--radius); background: var(--warning-soft); color: var(--text); font-size: 12px; line-height: 1.8; }
+.preparationNotice > strong { color: var(--warning); }
+.preparationNotice ul { margin: 5px 0 0; padding-left: 18px; }
+.presetBar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.presetSlot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.presetSlot > strong { font-size: 12px; flex: 1 0 100%; }
+.presetSlot button { font-size: 11px; }
+.derbyTag { color: var(--accent-text); font-size: 10px; text-align: center; margin: 10px 16px; font-weight: 650; letter-spacing: .5px; }
+.matchAction { display: flex; flex-wrap: wrap; gap: 10px; }
+.highlightFilter { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; cursor: pointer; }
+.matchTimeline { max-height: 430px; overflow-y: auto; scroll-behavior: smooth; }
+.highlightEvent > span { font-weight: 600; }
+.keyInsights { margin: 10px 22px 18px; padding-left: 18px; color: var(--text); font-size: 12px; line-height: 1.9; }
+.compactList li.offerRow { align-items: flex-start; flex-wrap: wrap; gap: 16px; padding-block: 18px; }
+.offerRow > span { flex: 1 1 230px; }
+.offerActions { display: grid; gap: 12px; flex: 1 1 380px; }
+.offerActions .inlineActions { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
+.offerActions input { max-width: 220px; }
+.dealSummary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 18px 22px; border-block: 1px solid var(--line-soft); }
+.dealSummary > div { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.dealSummary span { font-size: 10px; color: var(--muted); line-height: 1.6; }
+.dealSummary strong { font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.negotiationPanel { scroll-margin-top: 140px; }
+.compareTraits { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 20px; border-bottom: 1px solid var(--line-soft); }
+.compareTraits > div > strong { font-size: 13px; }
+.compareTraits .tableNote { padding: 8px 0 0; }
+@media (max-width: 750px) { .presetBar { grid-template-columns: 1fr; gap: 8px; } .presetSlot > strong { flex: 1 1 80px; } .dealSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .clubIdentity { align-items: flex-start; flex-direction: column; gap: 7px; } .compareTraits { grid-template-columns: 1fr; } .highlightFilter { font-size: 10px; } }
 .eyebrow { font-size: 10px; font-weight: 650; letter-spacing: 1.3px; color: var(--muted); margin-bottom: 9px; text-transform: uppercase; }
 .brand { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
 .brandMark { width: 53px; height: 58px; }

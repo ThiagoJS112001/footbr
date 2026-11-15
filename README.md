@@ -33,7 +33,20 @@ No elenco, clique no nome para ver atributos, estatísticas de cada temporada, t
 
 A copa entra no fluxo de **Avançar** após as rodadas 4, 8, 14, 20, 28 e 36. Etapas sem seu clube são resolvidas automaticamente. Quando participa, prepare a escalação normalmente e considere poupar titulares.
 
-Em **Categorias de Base**, avaliar custa R$ 5 mil e revela o teto de evolução. Promover custa dois salários em luvas, com contrato de três anos. É possível promover sem avaliar, assumindo a incerteza. A diretoria faz a primeira avaliação após oito rodadas no cargo e depois a cada quatro. Confiança em 15% ou menos encerra o vínculo; continue pela tela **Diretoria**, escolhendo um novo emprego.
+Em **Categorias de Base**, avaliar custa R$ 5 mil e revela uma faixa estimada de potencial e um parecer sobre espaço no elenco. Promover custa dois salários em luvas, com contrato de três anos. É possível promover sem avaliar, assumindo a incerteza. A diretoria faz a primeira avaliação após oito rodadas no cargo e depois a cada quatro. Confiança em 15% ou menos encerra o vínculo; continue pela tela **Diretoria**, escolhendo um novo emprego.
+
+## Ritmo e identidade
+
+- **Jogar direto:** a central oferece “Jogar com a escalação atual”. A preparação mostra titulares cansados, desfalques repostos e falta de reservas. No resultado, “Preparar próximo jogo” evita o retorno obrigatório ao painel.
+- **Três planos salvos por clube:** Principal, Reserva e Copa guardam formação, postura, marcação, titulares e banco. Salve suas escolhas na escalação e reaplique quando quiser; atletas indisponíveis ou que saíram do clube são repostos quando possível.
+- **Especialidades:** velocista, armador, finalizador, polivalente e líder têm efeitos e contrapartidas no motor, explicados no elenco, na comparação e no mercado. A força geral continua sendo apenas parte da decisão. A condição diminui durante a partida conforme o fôlego.
+- **Partida expressiva:** finalizações para fora, defesas, chances claras e pressão são narradas a partir dos chutes reais do motor. É possível filtrar os eventos principais. A classificação provisória usa os placares da rodada sem alterar a tabela oficial.
+- **Mercado:** observe até 100 jogadores e acompanhe mudanças de valor ou clube em relação ao momento da observação. Reputação e concorrência pela posição podem aumentar o salário pedido. O painel detalha transferência, salário, saldo e custo total. Ofertas recebidas admitem uma contraproposta e continuam exigindo aceite para vender.
+- **Empréstimos:** a lista de disponíveis reúne reservas com concorrência mais forte na posição. A taxa é de 5% do valor de mercado, o clube comprador assume o salário integral e mantém dois salários reservados para concluir a operação. O retorno ocorre ao começar a próxima temporada, antes de atualizar contratos e idades. Jogadores emprestados não podem ser vendidos, renovados ou emprestados novamente; vagas de retorno permanecem reservadas no clube de origem.
+- **Clubes com perfil:** formadores recebem jovens com maior margem de evolução, priorizam desenvolvimento nas compras da IA e ganham confiança por dar minutos aos sub-21. Tradicionais têm metas mais exigentes e priorizam reforços prontos; clubes de torcida têm maior procura nos clássicos. Rivalidades da cidade e de decisões de liga/copa persistem na carreira.
+- **Memória:** História e fichas guardam estreias, primeiros gols, transferências, reencontros e títulos. Os títulos são arquivados ao iniciar a temporada seguinte; as estatísticas da temporada atual continuam disponíveis. Atletas promovidos mantêm seu clube formador.
+
+Os novos sistemas são acrescentados aos saves anteriores sem recriar resultados. Partidas antigas em andamento mantêm o motor anterior até o apito final; a próxima partida já usa as novas regras. Saves atuais registram a versão do motor utilizada na partida.
 
 O progresso dos saves fica no armazenamento local do navegador. O catálogo importado, imagens licenciadas, cache, registros e cópias iniciais das carreiras ficam no SQLite local, em `.data/footbr.sqlite`. Alterações durante o jogo não são gravadas no catálogo. O menu e o painel de saves permitem escolher slots e exportar cópias. Se o navegador bloquear o armazenamento ou atingir a cota, o jogo informa a falha e mantém a exportação disponível. Limpar os dados do navegador remove os saves locais; o banco não substitui um backup do progresso.
 
@@ -56,4 +69,4 @@ As regras e os cenários de teste estão em [src/engine/career/README.md](src/en
 
 ## Evoluções opcionais
 
-Playtests mais longos podem orientar novos ajustes de dificuldade e economia. Empréstimos, rivalidades, mods e distribuição com Tauri continuam fora desta entrega. A filosofia permanece: poucas decisões claras, consequências visíveis e temporadas rápidas.
+Playtests mais longos podem orientar novos ajustes de dificuldade e economia. Editor de bases/mods e distribuição com Tauri continuam como evoluções futuras. A filosofia permanece: poucas decisões claras, consequências visíveis e temporadas rápidas.

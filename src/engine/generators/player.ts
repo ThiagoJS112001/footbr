@@ -2,6 +2,7 @@ import type { Player, PlayerAttributes, PlayerPosition } from '../models/Player.
 import { generatePlayerName } from './names.ts';
 import { pick, randomInt } from './random.ts';
 import type { Rng } from './random.ts';
+import { generatedTrait } from '../models/personality.ts';
 
 type Attribute = keyof PlayerAttributes;
 type Weights = Partial<Record<Attribute, number>>;
@@ -57,7 +58,7 @@ export function generatePlayer(rng: Rng, position: PlayerPosition, targetOverall
   const resaleFactor = age <= 23 ? 1.3 : Math.max(0.3, 1.15 - (age - 24) * 0.07);
   const experienceFactor = age < 23 ? 0.85 : age <= 30 ? 1 : 0.9;
   const secondary = secondaryPositions[position];
-  return {
+  const player: Player = {
     id: `player-${randomInt(rng, 0, 0xffff_ffff).toString(16)}-${randomInt(rng, 0, 0xffff_ffff).toString(16)}`,
     name: generatePlayerName(rng), age,
     nationality: pick(rng, ['Brasil', 'Brasil', 'Brasil', 'Argentina', 'Uruguai', 'Paraguai', 'Chile', 'Colômbia']),
@@ -70,4 +71,5 @@ export function generatePlayer(rng: Rng, position: PlayerPosition, targetOverall
     marketValue: Math.round(qualityValue * resaleFactor / 1000) * 1000,
     currentTeamId: null,
   };
+  return { ...player, trait: generatedTrait(player.id, position) };
 }

@@ -7,6 +7,7 @@ import { DataTable } from '../components/DataTable';
 import { Panel, StatCard } from '../components/Panel';
 import { currency } from '../utils';
 import styles from '../App.module.css';
+import { worldTeams } from '../../engine/career/world';
 
 export function History() {
   const state = useGameStore();
@@ -14,6 +15,9 @@ export function History() {
   const { league, season, history, news, selectedTeamId, systems } = career;
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState('club');
+  const [momentKind, setMomentKind] = useState('all');
+  const moments = systems.milestones.filter((m) => (scope === 'world' || m.teamId === selectedTeamId || m.relatedTeamId === selectedTeamId) && (momentKind === 'all' || m.kind === momentKind) && m.playerName.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const rivals = systems.rivalries.filter((r) => r.teamIds.includes(selectedTeamId!)).sort((a, b) => b.intensity - a.intensity);
   const scorers = getTopScorers(league);
   const players = [...systems.playerHistory, ...currentPlayerRecords(career)].filter((p) => (scope === 'world' || p.teamId === selectedTeamId) && p.playerName.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).sort((a, b) => b.season - a.season || b.goals - a.goals);
   const records = systems.clubHistory.filter((r) => r.teamId === selectedTeamId);
@@ -21,6 +25,8 @@ export function History() {
   const win = [...records].sort((a, b) => b.biggestWinMargin - a.biggestWinMargin)[0];
   return <><PageHeader eyebrow="MEMÓRIA DO CLUBE" title="História e artilharia" description={`Temporada ${season} · Campanhas, títulos, recordes, jogadores e transferências preservados.`} />
     <div className={styles.metricGrid}><StatCard label="Títulos de liga do clube" value={String(records.filter((r) => r.leagueTitle).length)} /><StatCard label="Copas do clube" value={String(records.filter((r) => r.cupTitle).length)} /><StatCard label="Melhor campanha concluída" value={best ? `${best.position}º · Divisão ${best.division}` : 'A construir'} detail={best ? `T${best.season} · ${best.points} pontos` : ''} /><StatCard label="Maior goleada registrada" value={win?.biggestWin ?? 'A construir'} /></div>
+    <Panel title="Histórias que ficam" icon="history"><div className={styles.controls}><label className={styles.filterLabel}>Tipo de momento<select value={momentKind} onChange={(e) => setMomentKind(e.target.value)}><option value="all">Todos os momentos</option><option value="debut">Estreias</option><option value="first-goal">Primeiros gols</option><option value="title">Títulos</option><option value="transfer">Transferências</option><option value="reunion">Reencontros</option></select></label></div><ul className={styles.compactList}>{moments.slice(-20).reverse().map((m) => <li key={m.id}><span><strong>{m.text}</strong><small>Temporada {m.season} · Rodada {m.round}</small></span></li>)}{!moments.length && <li className={styles.muted}>As estreias, gols, títulos e reencontros vão construir a memória da carreira.</li>}</ul>{moments.length > 20 && <p className={styles.tableNote}>Exibindo os 20 momentos mais recentes de {moments.length}. Os filtros de jogador e abrangência abaixo também se aplicam aqui.</p>}</Panel>
+    <Panel title="Rivalidades do clube" icon="shield"><ul className={styles.compactList}>{rivals.map((r) => <li key={r.teamIds.join('-')}><span><strong>{worldTeams(career).find((t) => r.teamIds.includes(t.id) && t.id !== selectedTeamId)?.name}</strong><small>{r.reason} · Intensidade {r.intensity}/100</small></span></li>)}{!rivals.length && <li className={styles.muted}>Decisões de copa e confrontos decisivos por acesso, título ou permanência podem criar novas rivalidades.</li>}</ul><p className={styles.tableNote}>Clássicos aumentam a procura por ingressos. Clubes de torcida recebem um impulso maior, respeitando a capacidade do estádio.</p></Panel>
     <div className={styles.managerGrid}><Panel title="Artilharia da divisão" icon="standings"><DataTable caption="Artilharia" rows={scorers} getRowId={(p) => p.playerId} columns={[
       { id: 'name', label: 'Jogador', render: (p) => p.playerName }, { id: 'club', label: 'Clube do primeiro gol', render: (p) => p.teamName }, { id: 'goals', label: 'Gols', render: (p) => <strong>{p.goals}</strong> },
     ]} /></Panel><Panel title="Notícias do clube e do mercado" icon="news"><ul className={styles.compactList}>{news.map((item, index) => <li key={index}>{item}</li>)}</ul></Panel></div>

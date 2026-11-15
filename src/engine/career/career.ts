@@ -9,7 +9,8 @@ import type { CareerSystems } from './types';
 import { createSystems } from './bootstrap';
 import { careerConfig as config } from './config';
 import { replaceTeams, requireManagedClub } from './world';
-import { appendTransfer, canSell, spendingRoom } from './market';
+import { activeLoan, appendTransfer, canSell, rosterSize, signingInterest, spendingRoom, returnLoans } from './market';
+import { derbyAttendance } from './stories';
 import { archiveSeason } from './history';
 import { createAcademy } from './academy';
 import { createBoard } from './board';
@@ -99,7 +100,7 @@ export function settleRound(career: Career, round: number): Career {
     for (const team of league.teams) {
       const match = league.schedule.find((r) => r.round === round)?.matches.find((m) => m.homeTeamId === team.id);
       const position = league.standings.find((r) => r.teamId === team.id)!.position;
-      const attendance = Math.round(team.stadium.capacity * Math.max(.35, Math.min(.95, .45 + team.reputation / 200 + (10 - position) * .008)));
+      const attendance = Math.round(team.stadium.capacity * Math.max(.35, Math.min(1, (.45 + team.reputation / 200 + (10 - position) * .008) * (match ? derbyAttendance(career, team, match.awayTeamId) : 1))));
       if (match && !match.forfeitTeamIds?.length) next = addFinance(next, team.id, round, `Bilheteria líquida · ${attendance.toLocaleString('pt-BR')} torcedores`, Math.round(attendance * team.stadium.ticketPrice * config.netGateShare));
       next = addFinance(next, team.id, round, 'Patrocínio semanal', Math.round(config.sponsorBase + team.reputation * config.sponsorPerReputation));
       next = addFinance(next, team.id, round, 'Salários · 1/4 da folha mensal', -Math.round(payroll(team) / 4));
@@ -123,12 +124,13 @@ export function buyPlayer(career: Career, playerId: string, offer: number, salar
   const seller = teams.find((t) => t.squad.some((p) => p.id === playerId));
   const player = seller?.squad.find((p) => p.id === playerId) ?? career.freeAgents.find((p) => p.id === playerId);
   if (!player || seller?.id === buyer.id) throw new Error('Jogador indisponível para compra.');
-  if (buyer.squad.length >= 35) throw new Error('Seu elenco atingiu o limite de 35 jogadores.');
+  if (activeLoan(career, playerId)) throw new Error('Jogador emprestado só pode ser negociado após o retorno.');
+  if (rosterSize(career, buyer.id) >= 35) throw new Error('Seu elenco atingiu o limite de 35 jogadores, incluindo retornos de empréstimo.');
   if (buyer.budget < offer || buyer.budget < 0) throw new Error('Saldo insuficiente para contratar. Venda jogadores para equilibrar as contas.');
   if (seller && !canSell(seller, player)) throw new Error('O clube não aceita perder a cobertura necessária para essa formação.');
   const ask = seller ? askingPrice(player) : 0;
   if (offer < ask) throw new Error(`Contraproposta do clube: R$ ${ask.toLocaleString('pt-BR')}.`);
-  const wantedSalary = Math.ceil((player.contract?.salary ?? player.marketValue * 0.012) * 1.1 / 100) * 100;
+  const wantedSalary = signingInterest(player, buyer, seller).salary;
   if (salary < wantedSalary) throw new Error(`O jogador pede salário de R$ ${wantedSalary.toLocaleString('pt-BR')} por mês.`);
   const signed = { ...player, currentTeamId: buyer.id, contract: { salary, yearsRemaining: years } };
   let next = changeTeams(career, [
@@ -147,10 +149,11 @@ export function sellPlayer(career: Career, playerId: string, round: number): Car
   const seller = career.league.teams.find((t) => t.id === career.selectedTeamId)!;
   const player = seller.squad.find((p) => p.id === playerId);
   if (!player) throw new Error('Jogador fora do seu elenco.');
+  if (activeLoan(career, playerId)) throw new Error('Jogador emprestado só pode ser negociado após o retorno.');
   if (!canSell(seller, player)) throw new Error('Mantenha pelo menos 18 jogadores e cobertura para sua formação.');
   const price = Math.round(player.marketValue * 0.85 / 1000) * 1000;
   const buyer = [...career.league.teams, ...career.otherLeague.teams]
-    .filter((t) => t.id !== seller.id && spendingRoom(t) >= price + (player.contract?.salary ?? 1000) * config.salaryReserveMonths && t.squad.length < 35)
+    .filter((t) => t.id !== seller.id && spendingRoom(t) >= price + (player.contract?.salary ?? 1000) * config.salaryReserveMonths && rosterSize(career, t.id) < 35)
     .sort((a, b) => a.squad.filter((p) => p.primaryPosition === player.primaryPosition).length - b.squad.filter((p) => p.primaryPosition === player.primaryPosition).length || b.budget - a.budget)[0];
   if (!buyer) throw new Error('Nenhum clube tem orçamento para essa compra agora.');
   let next = changeTeams(career, [
@@ -168,6 +171,7 @@ export function renewContract(career: Career, playerId: string, round: number): 
   const team = career.league.teams.find((t) => t.id === career.selectedTeamId)!;
   const player = team.squad.find((p) => p.id === playerId);
   if (!player?.contract) throw new Error('Contrato indisponível.');
+  if (activeLoan(career, playerId)) throw new Error('O contrato pertence ao clube que cedeu o jogador.');
   if (team.budget < 0) throw new Error('Equilibre o saldo antes de renovar contratos.');
   if (player.contract.yearsRemaining >= 3) throw new Error('O contrato já tem três anos ou mais.');
   const salary = Math.ceil(player.contract.salary * 1.1 / 100) * 100;
@@ -182,6 +186,7 @@ export function nextSeason(career: Career): Career {
   if (career.systems.board.status === 'dismissed') throw new Error('Aceite um novo emprego para continuar sua carreira.');
   if (career.systems.cup.status === 'active' && !career.systems.cup.championId) throw new Error('Conclua a copa antes de começar a próxima temporada.');
   career = archiveSeason(career);
+  career = returnLoans(career);
   const first = career.league.teams[0].division === 1 ? career.league : career.otherLeague;
   const second = first === career.league ? career.otherLeague : career.league;
   const relegatedIds = first.standings.slice(-4).map((r) => r.teamId);

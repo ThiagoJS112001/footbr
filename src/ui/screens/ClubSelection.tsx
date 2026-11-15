@@ -7,6 +7,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Icon } from '../components/Icon';
 import { Brand } from '../components/Brand';
 import styles from '../App.module.css';
+import { clubProfile, profileInfo } from '../../engine/models/personality';
 
 export function ClubSelection({ league: primary }: { league: League }) {
   const [alternate, setAlternate] = useState(false);
@@ -24,6 +25,7 @@ export function ClubSelection({ league: primary }: { league: League }) {
       {[...league.teams].sort((a, b) => averageOverall(b) - averageOverall(a)).map((team) => <button className={styles.clubCard} key={team.id} onClick={() => selectTeam(team.id)} aria-label={`Assumir ${team.name}`}>
         <div className={styles.clubCardTop}><ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /><span className={styles.overallNumber}>{averageOverall(team).toFixed(1)}<small>FORÇA MÉDIA</small></span></div>
         <h2>{team.name}</h2><p className={styles.muted}>{team.city} · {team.identity ? team.identity.provider === 'demo' ? 'Demonstração fictícia' : 'Identidade importada' : 'Clube fictício'}</p>
+        <span className={styles.traitBadge} title={profileInfo[clubProfile(team)].description}>{profileInfo[clubProfile(team)].label}</span>
         <div className={styles.clubCardBottom}><span>Reputação <strong>{team.reputation}<small> / 100</small></strong></span><span className={styles.chooseClub}>Assumir clube <Icon name="arrow" /></span></div>
       </button>)}
     </div>

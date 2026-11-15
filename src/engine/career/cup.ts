@@ -8,6 +8,7 @@ import type { Career } from './career';
 import { addFinance, seasonSeed } from './career';
 import { careerConfig as config } from './config';
 import { completedRounds, replaceTeams, worldTeams } from './world';
+import { derbyAttendance } from './stories';
 
 function fixtures(id: string, stage: number, ids: string[]): CupRound {
   const matches: Match[] = [];
@@ -63,7 +64,7 @@ export function finishCupRound(career: Career, session: RoundSession): Career {
   next = { ...next, systems: { ...next.systems, cup } };
   for (const match of matches) {
     const home = worldTeams(next).find((t) => t.id === match.homeTeamId)!;
-    if (!match.forfeitTeamIds?.length) next = addFinance(next, home.id, stage.afterRound, `Copa · bilheteria · ${stage.name}`, Math.round(home.stadium.capacity * .65 * home.stadium.ticketPrice * config.netGateShare));
+    if (!match.forfeitTeamIds?.length) next = addFinance(next, home.id, stage.afterRound, `Copa · bilheteria · ${stage.name}`, Math.round(home.stadium.capacity * Math.min(1, .65 * derbyAttendance(career, home, match.awayTeamId)) * home.stadium.ticketPrice * config.netGateShare));
     next = addFinance(next, match.winnerTeamId!, stage.afterRound, `Copa · premiação · ${stage.name}`, [80000, 160000, 320000, 600000, 1000000, 2000000][stage.round - 1]);
   }
   const own = matches.find((m) => m.homeTeamId === career.selectedTeamId || m.awayTeamId === career.selectedTeamId);

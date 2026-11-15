@@ -31,7 +31,7 @@ Meta conforme reputação relativa na divisão. Confiança inicial: 65%. Primeir
 
 ## Base, evolução e memória
 
-Cinco candidatos por temporada (GOL/ZAG/MC/PE/ATA). Avaliar: R$ 5 mil. Promover: dois salários em luvas, contrato de três anos, até três promoções. Avaliação/promoção não se repetem para o mesmo jovem; dispensar não gera reposição imediata.
+Cinco candidatos por temporada (GOL/ZAG/MC/PE/ATA). Avaliar: R$ 5 mil, com faixa estimada de potencial e parecer de prontidão, sem revelar o teto exato. Promover: dois salários em luvas, contrato de três anos, até três promoções. Avaliação/promoção não se repetem para o mesmo jovem; dispensar não gera reposição imediata. O clube formador permanece no atleta promovido.
 
 Jovens têm teto de potencial. Idade e minutos limitam o desenvolvimento; veteranos declinam. A virada faz reposições emergenciais para posições e mínimo de 18 atletas do técnico, mantendo relevantes as escolhas de promoção e contratação.
 
@@ -39,9 +39,15 @@ Antes de envelhecer, liberar ou aposentar, `archiveSeason` registra estatística
 
 `matchInsights` descreve formação, postura, finalizações/xG, expulsões e decisões por minuto. Recortes após substituições são observações, sem atribuição indevida de causalidade.
 
+`preparation.ts` guarda três escalações por clube, com reaplicação da tática e reposição dos desfalques. `models/personality.ts` define as especialidades e seus efeitos, perfis de clube e desgaste por fôlego. Formadores ganham até três pontos de potencial adicional na base; 360 minutos de sub-21 desde a última avaliação rendem três pontos de confiança. Metas e preferências de desenvolvimento da IA também consideram o perfil.
+
+`market.ts` mantém a observação com valor/clube de referência, uma contraproposta por oferta recebida e empréstimos de reservas. A taxa é de 5% do valor de mercado; o destino paga os salários integrais. `returnLoans` devolve os atletas após arquivar a temporada e antes de atualizar contratos. Retornos ocupam vagas reservadas no limite de 35; atletas emprestados ficam fora das vendas, renovações e novas cessões.
+
+`stories.ts` registra estreias, primeiros gols, transferências e reencontros, além de rivalidades da cidade e de decisões. Cidades ausentes não criam clássicos. Os jogos confirmados das duas divisões e da copa alimentam a memória, e os títulos entram ao arquivar a temporada. Vendas ficam visíveis na memória de origem e destino. Clássicos elevam a procura por ingressos em 10%, ou 20% para clubes de torcida, sem exceder a capacidade.
+
 ## Saves
 
-JSON v2 valida sistemas, referências e chave da copa. V1 cria sistemas faltantes sem alterar resultados, salários ou elencos. A copa não é inserida retroativamente em temporada antiga. Partidas v1 em andamento recuperam as escalações originais, incluídas explicitamente nos saves seguintes.
+JSON v2 valida sistemas, referências e chave da copa. Os campos novos são opcionais na leitura e recebem valores iniciais na migração. V1 cria sistemas faltantes sem alterar resultados, salários ou elencos. A copa não é inserida retroativamente em temporada antiga. Partidas v1 em andamento recuperam as escalações originais, incluídas explicitamente nos saves seguintes. `progress.engineVersion` preserva o motor anterior em partidas antigas até o apito final; o próximo jogo usa o motor atual. A compatibilidade do modo anterior foi comparada com 50 partidas do código anterior: mesmos placares, eventos e estatísticas.
 
 Gzip fica na camada UI; exportação/importação continuam em JSON. O leitor aceita slots JSON antigos, limita tamanho e verifica integridade. As chaves locais anteriores são mantidas para preservar acesso aos slots existentes.
 
@@ -49,15 +55,17 @@ Gzip fica na camada UI; exportação/importação continuam em JSON. O leitor ac
 
 `tests/expansion.test.ts`: mercado, consentimento, dinheiro, copa, pênaltis, desgaste, diretoria, empregos, base, aposentados, evolução, migração e integridade. `tests/ui/expansion.test.tsx`: telas, comparação, filtros e retomada de partidas de copa/v1. `tests/storage.test.ts`: compressão e corrupção.
 
+`tests/identity.test.ts` e `tests/ui/identity.test.tsx` cobrem planos salvos, avisos, jogo direto, projeção da tabela, observação, negociação de ofertas, empréstimos/retorno, relatórios da base, narrativa e migração dos novos sistemas e do motor de partida.
+
 Duas carreiras (seeds 2026 e 2045), três temporadas cada:
 
 | Perfil | Temporada | Transferências IA | Endividados | Caixa mediano |
 | --- | --- | --- | --- | --- |
-| Pequeno | 1 | 35 | 0 | R$ 4.382.724 |
-| Pequeno | 2 | 35 | 0 | R$ 4.680.421 |
-| Pequeno | 3 | 35 | 0 | R$ 4.503.695 |
-| Favorito | 1 | 35 | 0 | R$ 5.648.209 |
-| Favorito | 2 | 35 | 0 | R$ 5.239.676 |
-| Favorito | 3 | 35 | 0 | R$ 5.389.894 |
+| Pequeno | 1 | 35 | 0 | R$ 4.214.496 |
+| Pequeno | 2 | 35 | 0 | R$ 5.253.957 |
+| Pequeno | 3 | 35 | 0 | R$ 4.835.859 |
+| Favorito | 1 | 35 | 0 | R$ 5.596.669 |
+| Favorito | 2 | 35 | 0 | R$ 5.459.079 |
+| Favorito | 3 | 35 | 0 | R$ 5.643.681 |
 
 Cenários controlados com escalação automática e continuidade após demissão, sem compras manuais que pressionem o caixa. Verificam estabilidade e limites; não substituem playtests de dificuldade e diversão.

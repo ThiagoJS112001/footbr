@@ -39,6 +39,8 @@ A navegação reúne as telas implementadas, incluindo copa, base e diretoria. N
 
 A Central do Clube usa dados da carreira: próxima partida de liga/copa, resumo pós-jogo, classificação, destaques, contas, condição, meta/confiança da diretoria, propostas e notícias existentes. Sem resultados ou receitas inventados para reproduzir a imagem.
 
+A central permite jogar com a escalação atual e dá prioridade a avisos de preparação. Principal, Reserva e Copa são planos salvos por clube na escalação. Especialidades usam badges discretos e explicação na ficha/comparação; perfis de clube e clássicos usam os mesmos tokens do tema. No mercado, selecionar um jogador leva à negociação, que informa taxa, salário, saldo e custo estimado pelas semanas de liga do contrato. A tabela provisória da partida é explicitamente uma projeção, sem modificar a tabela oficial. A narrativa deriva de chutes e eventos reais da simulação.
+
 “Avançar” abre a preparação da próxima competição; na escalação, inicia a partida; no resultado, retorna ao painel. Fica indisponível durante jogos e ao encerrar a temporada. Após demissão, leva às propostas na diretoria. Filtros, fichas e rascunhos de negociação permanecem durante a navegação; iniciar/carregar outra carreira reinicia essas preferências de tela.
 
 O treinador aparece como “Você”, pois não há cadastro de nome. As datas representam os intervalos de sete dias do motor, com início visual em 12 de janeiro de 2026 e ano incrementado por temporada. A liga aparece na quarta-feira e a copa no sábado correspondente, entre rodadas da liga. Não há configuração de horários nem agenda de treinos.

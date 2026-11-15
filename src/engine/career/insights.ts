@@ -24,5 +24,6 @@ export function matchInsights(match: Match, teamId: string): string[] {
     notes.push(`Após a primeira substituição (${minute}′), houve ${after.filter((e) => e.teamId === teamId).length} gol(s) a favor e ${after.filter((e) => e.teamId !== teamId).length} contra. Esse é o recorte do placar, sem atribuir os gols à troca.`);
   }
   if (match.penalties) notes.push(`O empate foi decidido nos pênaltis: ${match.penalties.home}–${match.penalties.away}. Essas cobranças não entram na artilharia.`);
-  return notes.slice(0, 9);
+  const priority = (note: string) => note.includes('perdeu um jogador') ? 0 : note.startsWith('Seu time finalizou') ? 1 : note.startsWith('Aos ') ? 2 : note.startsWith('O empate') ? 3 : 4;
+  return notes.sort((a, b) => priority(a) - priority(b)).slice(0, 9);
 }

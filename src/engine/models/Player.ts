@@ -1,4 +1,5 @@
 import type { ImportedIdentity, PlayerFacts } from '../../data/catalog';
+import type { PlayerTrait } from './personality';
 
 export type PlayerPosition =
   | 'GK'
@@ -40,6 +41,8 @@ export interface PlayerDiscipline {
 }
 
 export interface Player {
+  trait?: PlayerTrait;
+  academyClubId?: string;
   identity?: ImportedIdentity<PlayerFacts>;
   id: string;
   name: string;

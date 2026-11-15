@@ -14,11 +14,14 @@ import { createSystems, emptySystems } from '../../engine/career/bootstrap';
 import { cupLeague, resolveBackgroundCup } from '../../engine/career/cup';
 import { finishCareerEvent, repairLineup, seasonComplete, simulateCareerEvent, startCareerEvent } from '../../engine/career/progression';
 import type { Competition } from '../../engine/career/progression';
-import { refreshOffers, respondToOffer } from '../../engine/career/market';
+import { borrowPlayer, counterOffer, refreshOffers, respondToOffer, toggleWatchPlayer } from '../../engine/career/market';
+import { loadLineupPreset, saveLineupPreset } from '../../engine/career/preparation';
+import type { LineupPreset } from '../../engine/career/preparation';
 import { assessProspect, promoteProspect, releaseProspect } from '../../engine/career/academy';
 import { takeJob } from '../../engine/career/board';
 import { resetUiPreferences } from './uiStore';
 import { decodeStoredSave, encodeStoredSave } from './saveStorage';
+import { simulationConfig } from '../../engine/simulation/config';
 
 export type GameScreen = 'dashboard' | 'squad' | 'lineup' | 'match' | 'standings' | 'calendar' | 'market' | 'finances' | 'history' | 'cup' | 'academy' | 'board' | 'compare';
 export type Screen = 'menu' | 'club-selection' | 'data-import' | GameScreen;
@@ -45,6 +48,11 @@ interface GameData extends Omit<Career, 'league' | 'otherLeague' | 'seed'> {
 }
 
 interface GameActions {
+  savePreset: (name: LineupPreset) => void;
+  loadPreset: (name: LineupPreset) => void;
+  watchPlayer: (id: string) => void;
+  borrow: (id: string) => void;
+  counter: (id: string, amount: number) => void;
   startNewGame: (seed?: number) => void;
   startImportedGame: (career: Career) => void;
   selectTeam: (teamId: string) => void;
@@ -93,7 +101,8 @@ function replay(data: SaveData): RoundSession | null {
   if (!data.progress) return null;
   const c = data.career;
   const cup = data.progress.competition === 'cup';
-  let live = startRound(cup ? cupLeague(c) : c.league, cup ? (seasonSeed(c) ^ 0xc0ffee) >>> 0 : seasonSeed(c), { ...data.progress.lineups, ...(c.lineup ? { [c.selectedTeamId!]: c.lineup } : {}) });
+  const legacyEngine = data.progress.engineVersion === 1 || data.progress.engineVersion === undefined && [...c.league.teams, ...c.otherLeague.teams].every((t) => t.squad.every((p) => p.trait === undefined));
+  let live = startRound(cup ? cupLeague(c) : c.league, cup ? (seasonSeed(c) ^ 0xc0ffee) >>> 0 : seasonSeed(c), { ...data.progress.lineups, ...(c.lineup ? { [c.selectedTeamId!]: c.lineup } : {}) }, legacyEngine ? { ...simulationConfig, personality: false } : simulationConfig);
   for (const command of data.progress.commands) {
     while ((live.games[0]?.minute ?? 90) < command.minute) live = stepRound(live);
     live = applyCommand(live, c.selectedTeamId!, command);
@@ -122,7 +131,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
   const currentLineup = () => {
     const s = get();
     const team = s.league!.teams.find((t) => t.id === s.selectedTeamId)!;
-    try { return s.lineup ?? autoPickLineup(team); }
+    try { return s.lineup ?? autoPickLineup(team, undefined, true); }
     catch (error) { if (error instanceof LineupUnavailableError) return null; throw error; }
   };
   const commitCareer = (next: Career, competition: Competition, round: number) => {
@@ -307,6 +316,11 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       } catch (error) { fail(error); }
     },
     buy: (id, offer, salary, years) => trade((c) => buyPlayer(c, id, offer, salary, years, get().currentRound), 'Contratação concluída.'),
+    savePreset: (name) => trade((c) => saveLineupPreset(c, name), 'Escalação salva. Você poderá reaplicá-la com reposição automática dos desfalques.'),
+    loadPreset: (name) => trade((c) => loadLineupPreset(c, name), 'Escalação aplicada. Confira condição física e substituições de desfalques.'),
+    watchPlayer: (id) => trade((c) => toggleWatchPlayer(c, id), 'Lista de observação atualizada.'),
+    borrow: (id) => trade((c) => borrowPlayer(c, id, get().currentRound), 'Empréstimo concluído até o fim da temporada.'),
+    counter: (id, amount) => trade((c) => counterOffer(c, id, amount, get().currentRound), 'Resposta do comprador disponível na proposta e nas notícias.'),
     sell: (id) => trade((c) => sellPlayer(c, id, get().currentRound), 'Venda concluída. Revise sua escalação.'),
     renew: (id) => trade((c) => renewContract(c, id, get().currentRound), 'Contrato renovado por três anos.'),
     respondOffer: (id, accept) => trade((c) => respondToOffer(c, id, accept, get().currentRound), accept ? 'Proposta aceita. Jogador transferido.' : 'Proposta recusada.'),
@@ -350,7 +364,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         const s = get();
         const lineups = s.live ? Object.fromEntries([...s.live.games.flatMap((g) => [[g.home.team.id, g.initialHomeLineup], [g.away.team.id, g.initialAwayLineup]]), ...s.live.forfeits.flatMap((m) => [[m.homeTeamId, m.homeLineup], [m.awayTeamId, m.awayLineup]])].filter((entry) => entry[1] !== null)) : undefined;
         return encodeSave({ career: careerOf(s), lastRound: s.lastRound, lastCompetition: s.lastCompetition, lastCupRound: s.lastCupRound,
-          progress: s.live ? { minute: s.live.games[0]?.minute ?? 0, commands: s.commands, competition: s.liveCompetition, lineups } : null });
+          progress: s.live ? { minute: s.live.games[0]?.minute ?? 0, commands: s.commands, competition: s.liveCompetition, lineups, engineVersion: s.live.games[0]?.config.personality === false ? 1 : 2 } : null });
       } catch (error) { fail(error); return null; }
     },
     importGame: (raw) => { try { restore(raw); autoSave(); } catch (error) { fail(error); } },

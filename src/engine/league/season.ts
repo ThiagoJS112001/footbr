@@ -7,10 +7,12 @@ import type { Rng } from '../generators/random.ts';
 import { startMatch, stepMatch, matchSnapshot, finishMatch } from '../simulation/simulateMatch.ts';
 import type { MatchSession } from '../simulation/simulateMatch.ts';
 import { simulationConfig } from '../simulation/config.ts';
+import type { SimulationConfig } from '../simulation/config.ts';
 import { generateSchedule } from './calendar.ts';
 import { leagueConfig as config } from './config.ts';
 import { autoPickLineup, LineupUnavailableError, validateLineup } from './lineup.ts';
 import { calculateStandings } from './standings.ts';
+import { matchFatigue } from '../models/personality.ts';
 
 export interface TopScorer {
   playerId: string;
@@ -27,8 +29,8 @@ export interface SeasonResult {
   matches: Match[];
 }
 
-function pickOrForfeit(team: Team): Lineup | null {
-  try { return autoPickLineup(team, undefined, true); }
+function pickOrForfeit(team: Team, personality = true): Lineup | null {
+  try { return autoPickLineup(team, undefined, true, personality); }
   catch (error) {
     if (error instanceof LineupUnavailableError) return null;
     throw error;
@@ -88,7 +90,7 @@ function updateTeam(team: Team, match: Match | undefined, rng: Rng, days = confi
         }
         if (event.type === 'card' && event.card === 'red') suspendedMatches = Math.max(suspendedMatches, config.suspensionMatches);
       }
-      const fatigue = (minutes.get(player.id) ?? 0) / simulationConfig.minutes * config.fullMatchFatigue;
+      const fatigue = matchFatigue(player, minutes.get(player.id) ?? 0, config.fullMatchFatigue);
       return {
         ...player, injury, discipline: { yellowCards, suspendedMatches },
         fitness: Math.max(config.minFitness, Math.min(config.maxFitness, player.fitness - fatigue + recovery)),
@@ -107,7 +109,7 @@ export interface RoundSession {
   forfeits: Match[];
 }
 
-export function startRound(league: League, seed: number, lineups: Record<string, Lineup> = {}): RoundSession {
+export function startRound(league: League, seed: number, lineups: Record<string, Lineup> = {}, simulation: SimulationConfig = simulationConfig): RoundSession {
   createRng(seed); // Validação mesmo quando a temporada já terminou.
   const schedule = league.schedule.length ? league.schedule : generateSchedule(league.teams.map((team) => team.id));
   const roundIndex = schedule.findIndex((round) => round.matches.some((match) => match.status !== 'finished'));
@@ -122,8 +124,8 @@ export function startRound(league: League, seed: number, lineups: Record<string,
     const home = teams.get(fixture.homeTeamId);
     const away = teams.get(fixture.awayTeamId);
     if (!home || !away) throw new Error('Partida referencia clube fora da liga.');
-    const homeLineup = lineups[home.id] ?? pickOrForfeit(home);
-    const awayLineup = lineups[away.id] ?? pickOrForfeit(away);
+    const homeLineup = lineups[home.id] ?? pickOrForfeit(home, simulation.personality !== false);
+    const awayLineup = lineups[away.id] ?? pickOrForfeit(away, simulation.personality !== false);
     if (lineups[home.id]) validateLineup(home, homeLineup!);
     if (lineups[away.id]) validateLineup(away, awayLineup!);
     const matchSeed = randomInt(rng, 0, 0xffff_ffff);
@@ -136,7 +138,7 @@ export function startRound(league: League, seed: number, lineups: Record<string,
       });
       continue;
     }
-    const game = startMatch({ ...home, lineup: homeLineup }, { ...away, lineup: awayLineup }, matchSeed);
+    const game = startMatch({ ...home, lineup: homeLineup }, { ...away, lineup: awayLineup }, matchSeed, simulation);
     game.id = fixture.id;
     games.push(game);
   }

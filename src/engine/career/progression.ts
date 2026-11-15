@@ -10,6 +10,7 @@ import { evaluateBoard } from './board';
 import { processAiMarket } from './market';
 import { completedRounds, ownTeam, worldTeams } from './world';
 import { matchInsights } from './insights';
+import { recordMatchStories } from './stories';
 
 export type Competition = 'league' | 'cup';
 export const nextCompetition = (career: Career): Competition => dueCupRound(career) ? 'cup' : 'league';
@@ -44,6 +45,10 @@ export function finishCareerEvent(career: Career, competition: Competition, sess
     if (session.round < career.league.schedule.length) next = processAiMarket(next, session.round + 1);
   }
   next = resolveBackgroundCup(next);
+  const previouslyFinished = new Set([...career.league.schedule, ...career.otherLeague.schedule, ...career.systems.cup.rounds].flatMap((r) => r.matches).filter((m) => m.status === 'finished').map((m) => m.id));
+  const newlyFinished = [...[next.league, next.otherLeague].flatMap((l) => l.schedule.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'league' as const })))),
+    ...next.systems.cup.rounds.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'cup' as const })))].filter(({ match: m }) => m.status === 'finished' && !previouslyFinished.has(m.id));
+  for (const event of newlyFinished) next = recordMatchStories(career, next, event.match, event.competition, event.round);
   const matches = competition === 'cup' ? next.systems.cup.rounds.find((r) => r.round === session.round)!.matches : next.league.schedule.find((r) => r.round === session.round)!.matches;
   const match = matches.find((m) => m.homeTeamId === career.selectedTeamId || m.awayTeamId === career.selectedTeamId);
   const team = ownTeam(next);

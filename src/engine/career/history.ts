@@ -50,7 +50,9 @@ export function archiveSeason(career: Career): Career {
       goalsFor: row.goalsFor, goalsAgainst: row.goalsAgainst, leagueTitle: row.position === 1, cupTitle: career.systems.cup.championId === team.id,
       biggestWin: best ? `${name(best.homeTeamId)} ${best.score!.home}–${best.score!.away} ${name(best.awayTeamId)}` : 'Sem vitórias', biggestWinMargin: best ? Math.abs(best.score!.home - best.score!.away) : 0 };
   }));
-  return { ...career, systems: { ...career.systems, playerHistory: [...career.systems.playerHistory, ...currentPlayerRecords(career)], clubHistory: [...career.systems.clubHistory, ...clubs] } };
+  const records = currentPlayerRecords(career);
+  const titles = records.flatMap((r) => r.titles.map((title) => ({ id: `title-${career.season}-${r.teamId}-${r.playerId}-${title}`, kind: 'title' as const, playerId: r.playerId, playerName: r.playerName, teamId: r.teamId, season: career.season, round: 38, text: `${r.playerName} conquistou ${title} com ${r.teamName}.` })));
+  return { ...career, systems: { ...career.systems, milestones: [...career.systems.milestones, ...titles], playerHistory: [...career.systems.playerHistory, ...records], clubHistory: [...career.systems.clubHistory, ...clubs] } };
 }
 export function playerCareerTotals(career: Career, playerId: string) {
   const rows = [...career.systems.playerHistory, ...currentPlayerRecords(career)].filter((p) => p.playerId === playerId);
