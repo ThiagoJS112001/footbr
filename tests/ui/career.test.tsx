@@ -1,3 +1,4 @@
+import { createCareer } from '../../src/engine/career/career';
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +11,7 @@ import { decodeStoredSave } from '../../src/ui/store/saveStorage';
 beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 function start() {
-  useGameStore.getState().startNewGame(42);
+  useGameStore.getState().startCustomGame(createCareer(42));
   useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[19].id);
 }
 
@@ -125,7 +126,7 @@ describe('carreira integrada', () => {
   });
 
   it('permite assumir um clube da segunda divisão e comprar com proposta pela interface', async () => {
-    useGameStore.getState().startNewGame(42);
+    useGameStore.getState().startCustomGame(createCareer(42));
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Divisão 2' }));

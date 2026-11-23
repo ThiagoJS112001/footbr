@@ -1,3 +1,4 @@
+import { worldTeams } from '../../engine/career/world';
 import type { Player, PlayerPosition, Team } from '../../engine/models';
 import { askingPrice, isWindowOpen } from '../../engine/career/career';
 import { careerOf, useGameStore } from '../store/gameStore';
@@ -20,9 +21,9 @@ function OfferCounter({ offer, open }: { offer: TransferOffer; open: boolean }) 
 
 export function Market({ team }: { team: Team }) {
   const state = useGameStore();
-  const { league, otherLeague, freeAgents, currentRound, buy, sell, systems, respondOffer, navigate } = state;
+  const { league, freeAgents, currentRound, buy, sell, systems, respondOffer, navigate } = state;
   const career = careerOf(state);
-  const clubs = [...league!.teams, ...otherLeague!.teams];
+  const clubs = worldTeams(career);
   const allPlayers = [...clubs.flatMap((t) => t.squad), ...freeAgents];
   const deal = useUiStore((s) => s.marketDealType);
   const negotiationRef = useRef<HTMLElement>(null);
@@ -60,7 +61,7 @@ export function Market({ team }: { team: Team }) {
   return <>
     <PageHeader eyebrow="MONTE SEU ELENCO" title="Mercado" description={`Saldo: ${currency(team.budget)} · Janela ${open ? 'aberta' : 'fechada'} · Rodadas 1–4 e 20–23`} />
     <Panel title="Propostas recebidas" icon="market"><ul className={styles.compactList}>{systems.offers.filter((o) => o.status === 'pending').map((offer) => {
-      const buyer = [...league!.teams, ...otherLeague!.teams].find((t) => t.id === offer.buyerId)!;
+      const buyer = clubs.find((t) => t.id === offer.buyerId)!;
       return <li key={offer.id} className={styles.offerRow}><span><strong>{offer.playerName} → {buyer.name}</strong><small>{currency(offer.amount)} · válida até antes do jogo da rodada {offer.expiresRound}</small></span><div className={styles.offerActions}><div className={styles.inlineActions}><button className={styles.primaryButton} disabled={!open} onClick={() => respondOffer(offer.id, true)}>Aceitar proposta por {offer.playerName}</button><button className={styles.secondaryButton} onClick={() => respondOffer(offer.id, false)}>Recusar</button></div><OfferCounter offer={offer} open={open} /></div></li>;
     })}{!systems.offers.some((o) => o.status === 'pending') && <li className={styles.muted}>Nenhuma proposta pendente. A IA busca reforços durante as janelas e preserva uma reserva para salários.</li>}</ul></Panel>
     {watchAlerts.length > 0 && <Panel title="Novidades dos observados" icon="market"><ul className={styles.compactList}>{watchAlerts.map((a) => <li key={a.id}><span>{a.text}<small>Comparação com o momento em que entrou na lista.</small></span><button className={styles.textButton} onClick={() => state.watchPlayer(a.id)}>Deixar de observar</button></li>)}</ul></Panel>}
@@ -78,7 +79,7 @@ export function Market({ team }: { team: Team }) {
         { id: 'strength', label: 'Força', sortValue: (p) => p.overall, render: (p) => <span className={styles.rating}>{p.overall}</span> },
         { id: 'trait', label: 'Perfil', render: (p) => <PlayerTraitBadge player={p} /> },
         { id: 'price', label: source === 'own' ? 'Oferta de venda' : 'Preço pedido', sortValue: (p) => p.currentTeamId ? source === 'own' ? p.marketValue * 0.85 : askingPrice(p) : 0, render: (p) => currency(p.currentTeamId ? source === 'own' ? Math.round(p.marketValue * 0.85 / 1000) * 1000 : askingPrice(p) : 0) },
-        { id: 'club', label: 'Clube', render: (p) => [...league!.teams, ...otherLeague!.teams].find((t) => t.id === p.currentTeamId)?.name ?? 'Sem clube' },
+        { id: 'club', label: 'Clube', render: (p) => clubs.find((t) => t.id === p.currentTeamId)?.name ?? 'Sem clube' },
       ]} />
     </section>
     {player && <section ref={negotiationRef} tabIndex={-1} className={`${styles.panel} ${styles.negotiationPanel}`} aria-label="Negociação"><div className={styles.panelHeading}><h2>{player.name} · {positionLabels[player.primaryPosition]}</h2><button className={styles.textButton} onClick={() => setSelected(null)}>Fechar negociação</button></div><div className={styles.controls}><button className={styles.secondaryButton} onClick={() => { useUiStore.setState({ compareRight: player.id, compareLeft: team.squad.find((p) => p.primaryPosition === player.primaryPosition)?.id ?? team.squad[0].id }); navigate('compare'); }}>Comparar com meu elenco</button></div>

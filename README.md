@@ -21,23 +21,25 @@ Para dados reais, copie [.env.example](.env.example) para `.env`, preencha `API_
 2. **Partida com decisões:** simulação minuto a minuto, pausa, velocidades 1×/2×/5×, cinco substituições e mudança de postura. Os outros jogos da divisão avançam junto. “Simular até o fim” usa o mesmo motor, a partir do minuto atual.
 3. **Salvar e continuar:** automático, três slots, exportação/importação JSON e migração dos saves anteriores. Partidas da liga ou copa retomam no mesmo minuto, com escalações e decisões preservadas. O armazenamento local é comprimido para acomodar carreiras mais longas.
 4. **Mercado ativo e finanças:** a IA contrata por necessidade e envia propostas pelos seus jogadores, sem vender ninguém sem aceite. Janelas 1–4 e 20–23. Extrato, projeção de quatro semanas, reserva sugerida de salários, bilheteria líquida, patrocínio, manutenção, juros e premiação.
-5. **Copa e carreira contínua:** 40 clubes, duas divisões, quatro acessos/rebaixamentos e copa em seis etapas, com pênaltis e desgaste adicional. Evolução por idade, potencial e minutos jogados, aposentadorias e contratos. Histórico de campanhas, recordes, transferências e estatísticas individuais.
+5. **Copa e carreira contínua:** 60 clubes em três divisões, com quatro acessos e rebaixamentos entre divisões vizinhas. A temporada abre com um estadual de quatro clubes. A copa nacional tem seis etapas, e a partir da segunda temporada há duas copas continentais. Evolução por idade, potencial e minutos jogados, aposentadorias e contratos. Histórico de campanhas, recordes, transferências e estatísticas individuais.
 6. **Diretoria e base:** avaliações podem resultar em demissão; três propostas permitem continuar em outro clube do mesmo mundo. Cinco jovens por temporada, com avaliação de potencial e até três promoções escolhidas pelo técnico.
 7. **Decisões rápidas:** resumo após cada jogo, análise factual de táticas/expulsões/substituições, comparação de jogadores e preservação de filtros, fichas e propostas durante a navegação.
 
 ## Como jogar
 
-Escolha a divisão e o clube. No painel, clique em **Preparar partida**, ajuste os titulares e o banco e clique em **Jogar partida**. Durante o jogo, pause para substituir ou mudar a postura. Ao terminar, confira a tabela e as contas antes de preparar a próxima rodada.
+Escolha a divisão e o clube. Na **Central do Clube**, ajuste titulares, formação e postura e clique em **Jogar rodada** para ver placar, gols, desfalques e posição na liga. Para acompanhar minuto a minuto, use **Acompanhar ao vivo**. Em **Preparar partida**, você também pode escolher reservas e intensidade da marcação.
 
 No elenco, clique no nome para ver atributos, estatísticas de cada temporada, títulos e contrato. Use **Comparar jogadores** antes de trocar um titular ou contratar. Renove contratos antes de começar outra temporada: atletas sem renovação ficam livres. No mercado, clique no nome para negociar e consulte as propostas recebidas.
 
-A copa entra no fluxo de **Avançar** após as rodadas 4, 8, 14, 20, 28 e 36. Etapas sem seu clube são resolvidas automaticamente. Quando participa, prepare a escalação normalmente e considere poupar titulares.
+No menu inicial, abra o **Editor de clubes e elencos** para alterar o nome dos clubes e o nome, a idade, a posição e a força dos jogadores na base fictícia. Você pode importar ou exportar a base em JSON e usá-la em uma nova carreira.
+
+A copa nacional entra no fluxo de **Avançar** após as rodadas 4, 8, 14, 20, 28 e 36. O campeão da copa nacional e os primeiros colocados da Divisão 1 se classificam para as continentais do ano seguinte. Cada continental tem quatro classificados nacionais e quatro convidados fictícios. Etapas sem seu clube são resolvidas automaticamente. Quando participa, prepare a escalação normalmente e considere poupar titulares.
 
 Em **Categorias de Base**, avaliar custa R$ 5 mil e revela uma faixa estimada de potencial e um parecer sobre espaço no elenco. Promover custa dois salários em luvas, com contrato de três anos. É possível promover sem avaliar, assumindo a incerteza. A diretoria faz a primeira avaliação após oito rodadas no cargo e depois a cada quatro. Confiança em 15% ou menos encerra o vínculo; continue pela tela **Diretoria**, escolhendo um novo emprego.
 
 ## Ritmo e identidade
 
-- **Jogar direto:** a central oferece “Jogar com a escalação atual”. A preparação mostra titulares cansados, desfalques repostos e falta de reservas. No resultado, “Preparar próximo jogo” evita o retorno obrigatório ao painel.
+- **Jogar direto:** a central oferece “Jogar rodada” e “Acompanhar ao vivo”. A preparação mostra titulares cansados, desfalques repostos e falta de reservas. No resultado, “Preparar próximo jogo” evita o retorno obrigatório ao painel.
 - **Três planos salvos por clube:** Principal, Reserva e Copa guardam formação, postura, marcação, titulares e banco. Salve suas escolhas na escalação e reaplique quando quiser; atletas indisponíveis ou que saíram do clube são repostos quando possível.
 - **Especialidades:** velocista, armador, finalizador, polivalente e líder têm efeitos e contrapartidas no motor, explicados no elenco, na comparação e no mercado. A força geral continua sendo apenas parte da decisão. A condição diminui durante a partida conforme o fôlego.
 - **Partida expressiva:** finalizações para fora, defesas, chances claras e pressão são narradas a partir dos chutes reais do motor. É possível filtrar os eventos principais. A classificação provisória usa os placares da rodada sem alterar a tabela oficial.
@@ -50,7 +52,7 @@ Os novos sistemas são acrescentados aos saves anteriores sem recriar resultados
 
 O progresso dos saves fica no armazenamento local do navegador. O catálogo importado, imagens licenciadas, cache, registros e cópias iniciais das carreiras ficam no SQLite local, em `.data/footbr.sqlite`. Alterações durante o jogo não são gravadas no catálogo. O menu e o painel de saves permitem escolher slots e exportar cópias. Se o navegador bloquear o armazenamento ou atingir a cota, o jogo informa a falha e mantém a exportação disponível. Limpar os dados do navegador remove os saves locais; o banco não substitui um backup do progresso.
 
-A migração mantém dinheiro, elencos, resultados e partidas em andamento. Em saves antigos de temporadas já iniciadas, a copa começa na temporada seguinte. Estatísticas individuais antigas que nunca foram registradas não são inventadas; os novos registros começam com os dados disponíveis.
+Saves de duas divisões conservam seu formato ao carregar e avançar de temporada. A migração mantém dinheiro, elencos, resultados e partidas em andamento. Em saves antigos de temporadas já iniciadas, a copa começa na temporada seguinte. Estatísticas individuais antigas que nunca foram registradas não são inventadas; os novos registros começam com os dados disponíveis.
 
 ## Organização
 
@@ -63,10 +65,10 @@ A migração mantém dinheiro, elencos, resultados e partidas em andamento. Em s
 - `server`: API local, integração API-Football, SQLite, cache e importações retomáveis.
 - `src/engine/career/imported.ts`: transformação de uma cópia do catálogo em uma carreira independente.
 
-O motor continua independente de React e DOM. As demonstrações `npm run sim-match` e `npm run sim-season` continuam disponíveis; a segunda testa uma liga isolada, enquanto a interface coordena a carreira com duas divisões e finanças.
+O motor continua independente de React e DOM. As demonstrações `npm run sim-match` e `npm run sim-season` continuam disponíveis; a segunda testa uma liga isolada, enquanto a interface coordena a carreira com três divisões e finanças.
 
 As regras e os cenários de teste estão em [src/engine/career/README.md](src/engine/career/README.md).
 
 ## Evoluções opcionais
 
-Playtests mais longos podem orientar novos ajustes de dificuldade e economia. Editor de bases/mods e distribuição com Tauri continuam como evoluções futuras. A filosofia permanece: poucas decisões claras, consequências visíveis e temporadas rápidas.
+Playtests mais longos podem orientar novos ajustes de dificuldade e economia. A distribuição com Tauri continua como evolução futura. A filosofia permanece: poucas decisões claras, consequências visíveis e temporadas rápidas.

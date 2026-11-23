@@ -64,7 +64,7 @@ A identidade importada fica em `identity.facts`. Os atributos usados pelo motor 
 
 Posições genéricas como Defender, Midfielder e Attacker são distribuídas em funções táticas para a escalação; a posição da fonte é preservada. O jogo bloqueia elencos com menos de 18, mais de 60 jogadores ou sem cobertura para o 4-4-2 inicial. Não cria atletas supostamente reais para preencher lacunas. Idades incompatíveis com os limites do motor usam o parâmetro de idade, com indicação nos metadados.
 
-O formato do motor permanece em **duas divisões de 20 clubes**, 38 rodadas e copa própria. Importe até 20 clubes por divisão. Uma base parcial é completada com clubes inteiramente fictícios, com contagens e rótulos explícitos antes e depois de iniciar. Bases das duas divisões devem ser do mesmo ano. Calendários e regulamentos são gerados pelo FootBR; não reproduzem partidas oficiais da API.
+As novas carreiras têm **três divisões de 20 clubes**, com 38 rodadas em cada uma. Importe até 20 clubes em cada uma das duas primeiras divisões. A terceira reúne clubes fictícios. Uma base parcial é completada com clubes inteiramente fictícios, com contagens e rótulos explícitos antes e depois de iniciar. Bases das duas divisões devem ser do mesmo ano. Calendários e regulamentos são gerados pelo FootBR; não reproduzem partidas oficiais da API.
 
 ## Persistência e isolamento
 

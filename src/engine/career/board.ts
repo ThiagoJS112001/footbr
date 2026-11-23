@@ -2,7 +2,7 @@ import type { League, Team } from '../models';
 import type { Career } from './career';
 import type { Board } from './types';
 import { createAcademy } from './academy';
-import { completedRounds, ownTeam, worldTeams } from './world';
+import { arrangeDivisions, completedRounds, ownTeam, worldLeagues, worldTeams } from './world';
 import { clubProfile } from '../models/personality';
 import { minutesPlayed } from '../league/season';
 
@@ -36,10 +36,10 @@ export function availableJobs(career: Career): Team[] {
 }
 export function takeJob(career: Career, teamId: string): Career {
   if (!availableJobs(career).some((t) => t.id === teamId)) throw new Error('Proposta de emprego indisponível.');
-  const league = [career.league, career.otherLeague].find((l) => l.teams.some((t) => t.id === teamId))!;
+  const league = worldLeagues(career).find((l) => l.teams.some((t) => t.id === teamId))!;
   const team = league.teams.find((t) => t.id === teamId)!;
   const round = completedRounds(career);
-  return { ...career, selectedTeamId: teamId, league, otherLeague: league === career.league ? career.otherLeague : career.league, lineup: null,
+  return { ...career, selectedTeamId: teamId, ...arrangeDivisions(worldLeagues(career), league), lineup: null,
     finances: [...career.finances, { teamId, season: career.season, round, amount: 0, description: 'Início do trabalho no clube', balance: team.budget }],
     news: [`Você assumiu ${team.name} na rodada ${round}.`, ...career.news].slice(0, 20), systems: { ...career.systems, lastSummary: null,
       jobs: [...career.systems.jobs, { season: career.season, round, fromId: career.selectedTeamId!, toId: teamId }],

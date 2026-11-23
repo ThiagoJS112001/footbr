@@ -23,6 +23,8 @@ export interface Board {
 }
 export interface CupRound { round: number; name: string; afterRound: number; matches: Match[] }
 export interface Cup {
+  weeks?: number[];
+  guestIds?: string[];
   id: string; name: string; status: 'active' | 'deferred'; rounds: CupRound[]; byeTeamIds: string[]; championId: string | null;
 }
 export interface PlayerSeasonRecord {
@@ -34,7 +36,7 @@ export interface ClubSeasonRecord {
   goalsFor: number; goalsAgainst: number; leagueTitle: boolean; cupTitle: boolean; biggestWin: string; biggestWinMargin: number;
 }
 export interface RoundSummary {
-  competition: 'league' | 'cup'; round: number; title: string; result: string; teamId: string;
+  competition: import('./progression').Competition; round: number; title: string; result: string; teamId: string;
   position: number; positionChange: number; points: number; moneyChange: number; absences: string[]; notes: string[];
 }
 export interface CareerSystems {
@@ -43,6 +45,8 @@ export interface CareerSystems {
   loans: { id: string; playerId: string; playerName: string; fromId: string; toId: string; season: number; round: number; fee: number; contract: PlayerContract; status: 'active' | 'returned' }[];
   rivalries: { teamIds: [string, string]; intensity: number; reason: string }[];
   milestones: { id: string; playerId: string; playerName: string; teamId: string; relatedTeamId?: string; season: number; round: number; kind: 'debut' | 'first-goal' | 'title' | 'transfer' | 'reunion'; text: string }[];
+  stateCups?: Cup[];
+  continentalCups?: Cup[];
   marketRound: number; offers: TransferOffer[]; transfers: TransferRecord[]; academy: Academy; board: Board; cup: Cup;
   playerHistory: PlayerSeasonRecord[]; clubHistory: ClubSeasonRecord[]; lastSummary: RoundSummary | null;
   jobs: { season: number; round: number; fromId: string; toId: string }[];

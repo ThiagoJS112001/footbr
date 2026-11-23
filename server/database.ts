@@ -1,3 +1,5 @@
+import type { Career } from '../src/engine/career/career';
+import { worldTeams } from '../src/engine/career/world';
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -110,12 +112,12 @@ export class CatalogDatabase {
     return `/api/media/${id}`;
   }
   media(id: string) { return this.db.prepare('SELECT mime,bytes FROM media WHERE id=?').get(id) as { mime: string; bytes: Uint8Array } | undefined; }
-  saveCareer(snapshot: CatalogSnapshot, career: { league: { teams: { id: string; squad: { id: string }[] }[] }; otherLeague: { teams: { id: string; squad: { id: string }[] }[] }; freeAgents?: { id: string }[] }) {
+  saveCareer(snapshot: CatalogSnapshot, career: Career) {
     this.transaction(() => {
       this.db.prepare('INSERT INTO career_snapshots VALUES(?,?)').run(snapshot.id, JSON.stringify(snapshot));
       this.db.prepare('INSERT INTO careers VALUES(?,?,?)').run(snapshot.id, snapshot.id, JSON.stringify(career));
-      for (const team of [...career.league.teams, ...career.otherLeague.teams]) for (const player of team.squad) this.db.prepare('INSERT INTO career_players VALUES(?,?,?,?)').run(snapshot.id, player.id, team.id, JSON.stringify(player));
-      for (const player of career.freeAgents ?? []) this.db.prepare('INSERT INTO career_players VALUES(?,?,?,?)').run(snapshot.id, player.id, null, JSON.stringify(player));
+      for (const team of worldTeams(career)) for (const player of team.squad) this.db.prepare('INSERT INTO career_players VALUES(?,?,?,?)').run(snapshot.id, player.id, team.id, JSON.stringify(player));
+      for (const player of career.freeAgents) this.db.prepare('INSERT INTO career_players VALUES(?,?,?,?)').run(snapshot.id, player.id, null, JSON.stringify(player));
     });
   }
 }

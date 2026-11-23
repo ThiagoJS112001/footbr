@@ -1,3 +1,4 @@
+import { arrangeDivisions, worldLeagues, worldTeams } from '../../engine/career/world';
 import { create } from 'zustand';
 import { autoPickLineup, LineupUnavailableError } from '../../engine/league';
 import { formationSlots, validateLineup } from '../../engine/league/lineup';
@@ -11,7 +12,7 @@ import type { Career } from '../../engine/career/career';
 import { decodeSave, encodeSave } from '../../engine/save/save';
 import type { MatchCommand, SaveData } from '../../engine/save/save';
 import { createSystems, emptySystems } from '../../engine/career/bootstrap';
-import { cupLeague, resolveBackgroundCup } from '../../engine/career/cup';
+import { cupLeague, managedCup, resolveBackgroundCup } from '../../engine/career/cup';
 import { finishCareerEvent, repairLineup, seasonComplete, simulateCareerEvent, startCareerEvent } from '../../engine/career/progression';
 import type { Competition } from '../../engine/career/progression';
 import { borrowPlayer, counterOffer, refreshOffers, respondToOffer, toggleWatchPlayer } from '../../engine/career/market';
@@ -24,7 +25,7 @@ import { decodeStoredSave, encodeStoredSave } from './saveStorage';
 import { simulationConfig } from '../../engine/simulation/config';
 
 export type GameScreen = 'dashboard' | 'squad' | 'lineup' | 'match' | 'standings' | 'calendar' | 'market' | 'finances' | 'history' | 'cup' | 'academy' | 'board' | 'compare';
-export type Screen = 'menu' | 'club-selection' | 'data-import' | GameScreen;
+export type Screen = 'menu' | 'club-selection' | 'data-import' | 'base-editor' | GameScreen;
 export const saveKey = (slot = 0) => `footbr.save.v1.${slot}`;
 
 interface GameData extends Omit<Career, 'league' | 'otherLeague' | 'seed'> {
@@ -55,8 +56,9 @@ interface GameActions {
   counter: (id: string, amount: number) => void;
   startNewGame: (seed?: number) => void;
   startImportedGame: (career: Career) => void;
+  startCustomGame: (career: Career) => void;
   selectTeam: (teamId: string) => void;
-  navigate: (screen: GameScreen | 'menu' | 'data-import') => void;
+  navigate: (screen: GameScreen | 'menu' | 'data-import' | 'base-editor') => void;
   updateTactic: (patch: Partial<Tactic>) => void;
   pickPlayer: (slot: number, playerId: string) => void;
   toggleReserve: (playerId: string) => void;
@@ -86,7 +88,7 @@ interface GameActions {
 
 export const initialGameData: GameData = {
   source: undefined,
-  league: null, otherLeague: null, selectedTeamId: null, currentRound: 1, seed: null, season: 1,
+  league: null, otherLeague: null, extraLeague: undefined, selectedTeamId: null, currentRound: 1, seed: null, season: 1,
   screen: 'menu', isAdvancing: false, error: null, message: null, saveStatus: '',
   lineup: null, finances: [], history: [], freeAgents: [], news: [], live: null, commands: [], lastRound: null, paused: true, speed: 1,
   systems: emptySystems, liveCompetition: 'league', lastCompetition: 'league', lastCupRound: null,
@@ -94,15 +96,16 @@ export const initialGameData: GameData = {
 
 export function careerOf(state: GameData): Career {
   if (!state.league || !state.otherLeague || state.seed === null || !state.selectedTeamId) throw new Error('Escolha um clube primeiro.');
-  const { league, otherLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems, source } = state;
-  return { league, otherLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems, source };
+  const { league, otherLeague, extraLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems, source } = state;
+  return { league, otherLeague, extraLeague, seed, selectedTeamId, season, lineup, finances, history, freeAgents, news, systems, source };
 }
 function replay(data: SaveData): RoundSession | null {
   if (!data.progress) return null;
   const c = data.career;
-  const cup = data.progress.competition === 'cup';
-  const legacyEngine = data.progress.engineVersion === 1 || data.progress.engineVersion === undefined && [...c.league.teams, ...c.otherLeague.teams].every((t) => t.squad.every((p) => p.trait === undefined));
-  let live = startRound(cup ? cupLeague(c) : c.league, cup ? (seasonSeed(c) ^ 0xc0ffee) >>> 0 : seasonSeed(c), { ...data.progress.lineups, ...(c.lineup ? { [c.selectedTeamId!]: c.lineup } : {}) }, legacyEngine ? { ...simulationConfig, personality: false } : simulationConfig);
+  const competition = data.progress.competition ?? 'league';
+  const cup = competition === 'league' ? undefined : managedCup(c, competition);
+  const legacyEngine = data.progress.engineVersion === 1 || data.progress.engineVersion === undefined && worldTeams(c).every((t) => t.squad.every((p) => p.trait === undefined));
+  let live = startRound(cup ? cupLeague(c, cup) : c.league, cup ? (seasonSeed(c) ^ 0xc0ffee) >>> 0 : seasonSeed(c), { ...data.progress.lineups, ...(c.lineup ? { [c.selectedTeamId!]: c.lineup } : {}) }, legacyEngine ? { ...simulationConfig, personality: false } : simulationConfig);
   for (const command of data.progress.commands) {
     while ((live.games[0]?.minute ?? 90) < command.minute) live = stepRound(live);
     live = applyCommand(live, c.selectedTeamId!, command);
@@ -137,7 +140,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
   const commitCareer = (next: Career, competition: Competition, round: number) => {
     const pending = next.league.schedule.find((r) => r.matches.some((m) => m.status !== 'finished'));
     set({ ...next, live: null, commands: [], currentRound: pending?.round ?? next.league.schedule.length, lastRound: competition === 'league' ? round : get().lastRound,
-      lastCompetition: competition, lastCupRound: competition === 'cup' ? round : get().lastCupRound, paused: true, isAdvancing: false, error: null });
+      lastCompetition: competition, lastCupRound: competition !== 'league' ? round : null, paused: true, isAdvancing: false, error: null });
     autoSave();
   };
   const trade = (operation: (c: Career) => Career, message: string) => {
@@ -175,30 +178,39 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         set({ ...initialGameData, ...structuredClone(career), screen: 'club-selection' });
       } catch (error) { fail(error); }
     },
+    startCustomGame: (career) => {
+      ensureIdle(false);
+      resetUiPreferences();
+      set({ ...initialGameData, ...career, screen: 'club-selection' });
+    },
     startNewGame: (providedSeed) => {
       try {
         if (get().live) throw new Error('Conclua a partida antes de iniciar outra carreira.');
         const seed = providedSeed ?? crypto.getRandomValues(new Uint32Array(1))[0];
         resetUiPreferences();
-        set({ ...initialGameData, ...createCareer(seed), screen: 'club-selection' });
+        set({ ...initialGameData, ...createCareer(seed, true), screen: 'club-selection' });
       } catch (error) { fail(error); }
     },
     selectTeam: (teamId) => {
       if (get().screen !== 'club-selection') return;
-      const { league, otherLeague } = get();
+      const { league, otherLeague, extraLeague } = get();
       if (!league || !otherLeague) return;
-      const own = [league, otherLeague].find((l) => l.teams.some((t) => t.id === teamId));
+      const divisions = worldLeagues({ league, otherLeague, extraLeague });
+      const own = divisions.find((l) => l.teams.some((t) => t.id === teamId));
       if (!own) return;
       const team = own.teams.find((t) => t.id === teamId)!;
-      set({ selectedTeamId: teamId, league: own, otherLeague: own === league ? otherLeague : league, screen: 'dashboard', error: null,
-        finances: [{ teamId, season: 1, round: 0, description: 'Saldo inicial', amount: 0, balance: team.budget }], news: [`Você assumiu o comando de ${team.name}.`] });
-      const c = careerOf(get());
-      const systems = createSystems(c);
-      set({ ...refreshOffers({ ...c, systems: { ...systems, cup: c.systems.cup } }, 1) });
-      autoSave();
+      try {
+        const career = careerOf({ ...get(), ...arrangeDivisions(divisions, own), selectedTeamId: teamId,
+          finances: [{ teamId, season: 1, round: 0, description: 'Saldo inicial', amount: 0, balance: team.budget }],
+          news: [`Você assumiu o comando de ${team.name}.`] });
+        const systems = { ...createSystems(career), cup: career.systems.cup };
+        const ready = resolveBackgroundCup({ ...career, systems });
+        set({ ...refreshOffers(ready, 1), screen: 'dashboard', error: null });
+        autoSave();
+      } catch (error) { fail(error); }
     },
     navigate: (screen) => {
-      if (screen !== 'menu' && screen !== 'data-import' && (!get().league || !get().selectedTeamId)) return;
+      if (screen !== 'menu' && screen !== 'data-import' && screen !== 'base-editor' && (!get().league || !get().selectedTeamId)) return;
       set({ screen: get().live && screen !== 'menu' ? 'match' : screen, error: null, message: null });
     },
     autoLineup: () => {
@@ -268,6 +280,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         const lineup = currentLineup();
         const result = simulateCareerEvent({ ...c, lineup }, lineup);
         commitCareer(result.career, result.competition, result.round);
+        if (get().screen !== 'menu') set({ screen: 'dashboard' });
       } catch (error) { set({ isAdvancing: false }); fail(error); }
     },
     kickOff: () => {
@@ -331,7 +344,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       try {
         ensureIdle(false);
         const next = resolveBackgroundCup(takeJob(careerOf(get()), id));
-        set({ ...next, screen: 'dashboard', lastRound: null, lastCupRound: null, error: null, message: 'Novo trabalho iniciado. Confira o elenco e a meta da diretoria.' }); autoSave();
+        set({ ...next, screen: 'dashboard', lastRound: null, lastCupRound: null, lastCompetition: 'league', error: null, message: 'Novo trabalho iniciado. Confira o elenco e a meta da diretoria.' }); autoSave();
       } catch (error) { fail(error); }
     },
     beginNextSeason: () => {

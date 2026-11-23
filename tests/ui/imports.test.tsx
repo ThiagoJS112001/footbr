@@ -62,7 +62,7 @@ describe('fluxo administrativo de importação', () => {
     expect(screen.getByText(/Direitos de uso não verificados/)).toBeInTheDocument();
     const season = catalog[0];
     await user.selectOptions(screen.getByRole('combobox', { name: 'Base da Divisão 1' }), season.id);
-    expect(screen.getByText('2 clubes importados + 38 clubes fictícios complementares')).toBeInTheDocument();
+    expect(screen.getByText('2 clubes importados + 58 clubes fictícios complementares')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Criar carreira e escolher clube' }));
     expect(await screen.findByRole('heading', { name: 'Onde começa a sua história?' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^Assumir / })).toHaveLength(20);
@@ -73,7 +73,9 @@ describe('fluxo administrativo de importação', () => {
     await user.click(screen.getByRole('button', { name: new RegExp(importedPlayer.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
     expect(screen.getByRole('region', { name: 'Identidade importada do jogador' })).toHaveTextContent('Nascimento: Não informado');
     const source = useGameStore.getState().source;
-    await act(async () => { await useGameStore.getState().advanceRound(); });
+    await act(async () => {
+      for (let i = 0; i < 3 && useGameStore.getState().lastRound === null; i++) await useGameStore.getState().advanceRound();
+    });
     const raw = useGameStore.getState().exportGame()!;
     act(() => { useGameStore.getState().startNewGame(9); useGameStore.getState().importGame(raw); });
     expect(useGameStore.getState().source).toEqual(source);

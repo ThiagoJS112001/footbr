@@ -51,7 +51,7 @@ function importedTeam(club: CatalogClub, base: Team, snapshot: CatalogSnapshot, 
 /** Cópia profunda e única. O motor nunca recebe referências mutáveis do catálogo. */
 export function createImportedCareer(snapshot: CatalogSnapshot, seed: number): Career {
   validateSimulation(snapshot.simulation);
-  const base = createCareer(seed);
+  const base = createCareer(seed, true);
   const all = snapshot.seasons.flatMap((s) => s.clubs);
   if (new Set(snapshot.seasons.map((s) => s.year)).size !== 1) throw new Error('Escolha temporadas do mesmo ano para as duas divisões.');
   if (!all.length || new Set(all.map((c) => c.id)).size !== all.length) throw new Error('Selecione temporadas sem repetir clubes entre as divisões.');
@@ -70,6 +70,6 @@ export function createImportedCareer(snapshot: CatalogSnapshot, seed: number): C
   }
   base.systems = createSystems(base);
   base.source = { id: snapshot.id, snapshotId: snapshot.id, createdAt: snapshot.createdAt, providers: [...new Set(snapshot.seasons.map((s) => s.provider))],
-    seasons: snapshot.seasons.map((s) => ({ name: s.competition.name, year: s.year, division: s.division })), simulation: structuredClone(snapshot.simulation), importedClubs: all.length, fictionalClubs: 40 - all.length };
+    seasons: snapshot.seasons.map((s) => ({ name: s.competition.name, year: s.year, division: s.division })), simulation: structuredClone(snapshot.simulation), importedClubs: all.length, fictionalClubs: 60 - all.length };
   return base;
 }

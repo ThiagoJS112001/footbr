@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { League, Team } from '../../engine/models';
 import { careerOf, useGameStore } from '../store/gameStore';
-import { dueCupRound } from '../../engine/career/cup';
+import { nextCupEvent } from '../../engine/career/progression';
 import { seasonComplete } from '../../engine/career/progression';
 import type { GameScreen } from '../store/gameStore';
 import { ClubBadge } from './ClubBadge';
@@ -25,7 +25,8 @@ export function Layout({ league, team, children }: { league: League; team: Team;
   const { screen, navigate, currentRound, season, live, isAdvancing, kickOff, error, message, saveStatus } = state;
   const career = careerOf(state);
   const complete = seasonComplete(career);
-  const cup = dueCupRound(career);
+  const cupEvent = nextCupEvent(career);
+  const cup = cupEvent?.round;
   const dismissed = career.systems.board.status === 'dismissed';
   const advance = () => {
     if (dismissed) { navigate('board'); return; }
@@ -43,7 +44,7 @@ export function Layout({ league, team, children }: { league: League; team: Team;
     <div className={styles.workspace}>
       <header className={styles.topbar}>
         <div className={styles.topbarClub}><ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /><div><strong>{team.name}</strong><span><Icon name="user" size={14} />Você · Treinador</span></div></div>
-        <div className={styles.topbarActions}><div className={styles.dateBlock}><Icon name="calendar" size={25} /><div><strong>{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : !!live || complete, state.source?.seasons[0]?.year)}</strong><span>{complete ? 'Temporada encerrada' : cup ? `Copa · ${cup.name}` : `Rodada ${padRound(currentRound)} de ${league.schedule.length}`} · Temporada {padRound(season)}</span></div></div><button className={styles.advanceButton} disabled={!!live || isAdvancing || complete && !dismissed} title={dismissed ? 'Conferir propostas de emprego' : screen === 'lineup' ? 'Iniciar partida com a escalação atual' : 'Preparar a próxima partida'} onClick={advance}><Icon name="match" size={21} /><span>Avançar</span></button></div>
+        <div className={styles.topbarActions}><div className={styles.dateBlock}><Icon name="calendar" size={25} /><div><strong>{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : !!live || complete, state.source?.seasons[0]?.year)}</strong><span>{complete ? 'Temporada encerrada' : cup ? `${cupEvent?.cup.name} · ${cup.name}` : `Rodada ${padRound(currentRound)} de ${league.schedule.length}`} · Temporada {padRound(season)}</span></div></div><button className={styles.advanceButton} disabled={!!live || isAdvancing || complete && !dismissed} title={dismissed ? 'Conferir propostas de emprego' : screen === 'lineup' ? 'Iniciar partida com a escalação atual' : 'Preparar a próxima partida'} onClick={advance}><Icon name="match" size={21} /><span>Avançar</span></button></div>
       </header>
       <main id="main-content" className={`${styles.content} ${screen === 'dashboard' ? styles.dashboardContent : ''}`} key={screen}>{error && <p role="alert" className={styles.error}>{error}</p>}{message && <p className={styles.notice}>{message}</p>}{dismissed && screen !== 'board' && <p role="alert" className={styles.error}>Seu vínculo com o clube foi encerrado. <button className={styles.textButton} onClick={() => navigate('board')}>Ver propostas de emprego</button></p>}{children}</main>
       <details className={styles.savePanel}><summary><Icon name="save" size={16} />Salvar e carregar<span>{saveStatus || 'Gerenciar arquivos'}</span></summary><SaveControls compact /></details>

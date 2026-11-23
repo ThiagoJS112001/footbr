@@ -15,10 +15,12 @@ import { AcademyScreen } from './screens/Academy';
 import { BoardScreen } from './screens/Board';
 import { CupScreen } from './screens/Cup';
 import { CompareScreen } from './screens/Compare';
+import { BaseEditor } from './screens/BaseEditor';
 import { DataImport } from './screens/DataImport';
 
 export function App() {
   const { screen, league, selectedTeamId, currentRound } = useGameStore();
+  if (screen === 'base-editor') return <BaseEditor />;
   if (screen === 'data-import') return <DataImport />;
   if (screen === 'menu' || !league) return <Menu />;
   const team = league.teams.find((candidate) => candidate.id === selectedTeamId);

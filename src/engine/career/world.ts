@@ -1,7 +1,13 @@
 import type { Team } from '../models';
 import type { Career } from './career';
 
-export const worldTeams = (career: Pick<Career, 'league' | 'otherLeague'>) => [...career.league.teams, ...career.otherLeague.teams];
+type Divisions = Pick<Career, 'league' | 'otherLeague' | 'extraLeague'>;
+export const worldLeagues = ({ league, otherLeague, extraLeague }: Divisions) => [league, otherLeague, ...(extraLeague ? [extraLeague] : [])];
+export const worldTeams = (career: Divisions) => worldLeagues(career).flatMap((league) => league.teams);
+export function arrangeDivisions(leagues: Career['league'][], league: Career['league']) {
+  const [otherLeague, extraLeague] = leagues.filter((division) => division !== league);
+  return { league, otherLeague, extraLeague };
+}
 export const ownTeam = (career: Career) => worldTeams(career).find((t) => t.id === career.selectedTeamId)!;
 export function requireManagedClub(career: Career): void {
   if (!career.selectedTeamId || !worldTeams(career).some((t) => t.id === career.selectedTeamId)) throw new Error('Escolha um clube primeiro.');
@@ -11,6 +17,6 @@ export const completedRounds = (career: Pick<Career, 'league'>) => career.league
 export const monthlyPayroll = (team: Team) => team.squad.reduce((sum, p) => sum + (p.contract?.salary ?? 0), 0);
 export function replaceTeams(career: Career, teams: Team[]): Career {
   const replacements = new Map(teams.map((t) => [t.id, { ...t, payroll: monthlyPayroll(t) }]));
-  return { ...career, league: { ...career.league, teams: career.league.teams.map((t) => replacements.get(t.id) ?? t) },
-    otherLeague: { ...career.otherLeague, teams: career.otherLeague.teams.map((t) => replacements.get(t.id) ?? t) } };
+  const leagues = worldLeagues(career).map((league) => ({ ...league, teams: league.teams.map((t) => replacements.get(t.id) ?? t) }));
+  return { ...career, ...arrangeDivisions(leagues, leagues[0]) };
 }

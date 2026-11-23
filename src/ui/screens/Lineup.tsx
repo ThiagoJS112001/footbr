@@ -6,7 +6,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Panel } from '../components/Panel';
 import { TacticalPitch } from '../components/TacticalPitch';
 import { careerOf } from '../store/gameStore';
-import { dueCupRound } from '../../engine/career/cup';
+import { nextCupEvent } from '../../engine/career/progression';
 import { positionLabels } from '../utils';
 import styles from '../App.module.css';
 import { presetLabels } from '../../engine/career/preparation';
@@ -17,7 +17,8 @@ import { playerTrait, traitInfo } from '../../engine/models/personality';
 export function LineupScreen({ team }: { team: Team }) {
   const state = useGameStore();
   const { lineup: saved, updateTactic, pickPlayer, toggleReserve, autoLineup, kickOff, league, systems } = state;
-  const cup = dueCupRound(careerOf(state));
+  const cupEvent = nextCupEvent(careerOf(state));
+  const cup = cupEvent?.round;
   let lineup = saved;
   let unavailable = '';
   try { lineup ??= autoPickLineup(team, undefined, true); } catch (error) { unavailable = (error as Error).message; }
@@ -29,7 +30,7 @@ export function LineupScreen({ team }: { team: Team }) {
   const average = lineup ? Math.round(team.squad.filter((p) => starters.has(p.id)).reduce((s, p) => s + p.fitness, 0) / 11) : 0;
   return <>
     <PageHeader eyebrow="ANTES DO APITO" title="Escalação e tática" description="Escolha os 11 e marque quem vai para o banco. A formação deve respeitar as posições dos jogadores." />
-    {cup && <p className={styles.notice}>Próximo compromisso: {systems.cup.name} · {cup.name}. Considere poupar jogadores cansados.</p>}
+    {cup && <p className={styles.notice}>Próximo compromisso: {cupEvent?.cup.name} · {cup.name}. Considere poupar jogadores cansados.</p>}
     <PreparationChecklist team={team} lineup={lineup} career={careerOf(state)} />
     <div className={styles.presetBar} aria-label="Escalações salvas">{(Object.keys(presetLabels) as LineupPreset[]).map((name) => <div className={styles.presetSlot} key={name}><strong>{presetLabels[name]}</strong><button className={styles.secondaryButton} disabled={!systems.savedLineups.some((p) => p.name === name && p.teamId === team.id)} onClick={() => state.loadPreset(name)}>Usar {presetLabels[name]}</button><button className={styles.textButton} disabled={!lineup} onClick={() => state.savePreset(name)}>Salvar {presetLabels[name]}</button></div>)}</div>
     <section className={styles.panel}>

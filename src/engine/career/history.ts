@@ -1,13 +1,14 @@
+import { allCups, competitionTeams } from './cup';
 import type { Match, Player } from '../models';
 import { minutesPlayed } from '../league/season';
 import type { Career } from './career';
 import type { ClubSeasonRecord, PlayerSeasonRecord } from './types';
-import { worldTeams } from './world';
+import { worldLeagues, worldTeams } from './world';
 
-export const seasonMatches = (career: Career): Match[] => [...career.league.schedule, ...career.otherLeague.schedule, ...career.systems.cup.rounds].flatMap((r) => r.matches).filter((m) => m.status === 'finished');
+export const seasonMatches = (career: Career): Match[] => [...worldLeagues(career).flatMap((league) => league.schedule), ...allCups(career).flatMap((cup) => cup.rounds)].flatMap((r) => r.matches).filter((m) => m.status === 'finished');
 export function recentClubMatches(career: Career): Match[] {
   return [...career.league.schedule.flatMap((r) => r.matches.map((match) => ({ match, order: r.round * 2 }))),
-    ...career.systems.cup.rounds.flatMap((r) => r.matches.map((match) => ({ match, order: r.afterRound * 2 + 1 })))]
+    ...allCups(career).flatMap((cup) => cup.rounds).flatMap((r) => r.matches.map((match) => ({ match, order: r.afterRound * 2 + 1 })))]
     .filter(({ match }) => match.status === 'finished' && (match.homeTeamId === career.selectedTeamId || match.awayTeamId === career.selectedTeamId))
     .sort((a, b) => a.order - b.order).slice(-5).map(({ match }) => match);
 }
@@ -21,31 +22,32 @@ export function currentPlayerRecords(career: Career): PlayerSeasonRecord[] {
     let record = records.get(key);
     if (!record) {
       const team = teams.find((t) => t.id === teamId)!;
-      const league = [career.league, career.otherLeague].find((l) => l.teams.some((t) => t.id === teamId))!;
+      const league = worldLeagues(career).find((l) => l.teams.some((t) => t.id === teamId))!;
       const titles = league.standings[0]?.teamId === teamId && league.schedule.every((r) => r.matches.every((m) => m.status === 'finished')) ? [`Liga · Divisão ${team.division}`] : [];
-      if (career.systems.cup.championId === teamId) titles.push(career.systems.cup.name);
+      titles.push(...allCups(career).filter((cup) => cup.championId === teamId).map((cup) => cup.name));
       record = { playerId, playerName: names.get(playerId) ?? 'Jogador transferido', teamId, teamName: team.name, season: career.season, division: team.division, appearances: 0, minutes: 0, goals: 0, titles };
       records.set(key, record);
     }
     return record;
   };
   for (const match of seasonMatches(career)) {
-    for (const teamId of [match.homeTeamId, match.awayTeamId]) {
+    for (const teamId of [match.homeTeamId, match.awayTeamId].filter((id) => teams.some((team) => team.id === id))) {
       for (const [id, minutes] of minutesPlayed(match, teamId)) { const r = get(id, teamId); r.appearances++; r.minutes += minutes; }
     }
-    for (const event of match.events) if (event.type === 'goal') { const r = get(event.playerId, event.teamId); r.goals++; if (event.playerName) r.playerName = event.playerName; }
+    for (const event of match.events) if (event.type === 'goal' && teams.some((team) => team.id === event.teamId)) { const r = get(event.playerId, event.teamId); r.goals++; if (event.playerName) r.playerName = event.playerName; }
   }
   return [...records.values()];
 }
 export function archiveSeason(career: Career): Career {
   if (career.systems.clubHistory.some((r) => r.season === career.season)) return career;
   const matches = seasonMatches(career);
-  const clubs: ClubSeasonRecord[] = [career.league, career.otherLeague].flatMap((league) => league.standings.map((row) => {
+  const names = new Map(competitionTeams(career).map((team) => [team.id, team.name]));
+  const clubs: ClubSeasonRecord[] = worldLeagues(career).flatMap((league) => league.standings.map((row) => {
     const team = league.teams.find((t) => t.id === row.teamId)!;
     const wins = matches.filter((m) => m.score && (m.homeTeamId === team.id && m.score.home > m.score.away || m.awayTeamId === team.id && m.score.away > m.score.home))
       .sort((a, b) => Math.abs(b.score!.home - b.score!.away) - Math.abs(a.score!.home - a.score!.away));
     const best = wins[0];
-    const name = (id: string) => worldTeams(career).find((t) => t.id === id)!.name;
+    const name = (id: string) => names.get(id)!;
     return { teamId: team.id, teamName: team.name, season: career.season, division: team.division, position: row.position, points: row.points,
       goalsFor: row.goalsFor, goalsAgainst: row.goalsAgainst, leagueTitle: row.position === 1, cupTitle: career.systems.cup.championId === team.id,
       biggestWin: best ? `${name(best.homeTeamId)} ${best.score!.home}–${best.score!.away} ${name(best.awayTeamId)}` : 'Sem vitórias', biggestWinMargin: best ? Math.abs(best.score!.home - best.score!.away) : 0 };

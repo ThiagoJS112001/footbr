@@ -1,9 +1,10 @@
+import { allCups } from './cup';
 import type { Match, Team } from '../models';
 import type { Career } from './career';
 import type { CareerSystems } from './types';
 import { minutesPlayed } from '../league/season';
 import { clubProfile } from '../models/personality';
-import { worldTeams } from './world';
+import { worldLeagues, worldTeams } from './world';
 
 export function initialRivalries(teams: Team[]): CareerSystems['rivalries'] {
   return teams.flatMap((team, i) => teams.slice(i + 1).filter((other) => team.city.trim().length > 0 && !/não informada|desconhecida|unknown/i.test(team.city) && other.city.trim().toLocaleLowerCase('pt-BR') === team.city.trim().toLocaleLowerCase('pt-BR'))
@@ -23,9 +24,10 @@ export function recordMatchStories(before: Career, after: Career, match: Match, 
     const id = `${kind}-${playerId}-${teamId}${suffix}`;
     if (!milestones.some((m) => m.id === id)) milestones.push({ id, kind, playerId, playerName, teamId, season: after.season, round, text });
   };
-  const past = [...before.league.schedule, ...before.otherLeague.schedule, ...before.systems.cup.rounds].flatMap((r) => r.matches).filter((m) => m.status === 'finished');
+  const past = [...worldLeagues(before).flatMap((league) => league.schedule), ...allCups(before).flatMap((cup) => cup.rounds)].flatMap((r) => r.matches).filter((m) => m.status === 'finished');
   for (const teamId of [match.homeTeamId, match.awayTeamId]) {
-    const team = teams.find((t) => t.id === teamId)!;
+    const team = teams.find((t) => t.id === teamId);
+    if (!team) continue;
     const opponentId = teamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId;
     for (const [playerId, minutes] of minutesPlayed(match, teamId)) {
       if (!minutes) continue;
@@ -40,13 +42,14 @@ export function recordMatchStories(before: Career, after: Career, match: Match, 
       }
     }
   }
-  for (const event of match.events) if (event.type === 'goal') {
+  for (const event of match.events) if (event.type === 'goal' && teams.some((team) => team.id === event.teamId)) {
     const scored = before.systems.playerHistory.some((r) => r.playerId === event.playerId && r.teamId === event.teamId && r.goals > 0)
       || past.some((m) => m.events.some((e) => e.type === 'goal' && e.playerId === event.playerId && e.teamId === event.teamId));
     if (!scored) add('first-goal', event.playerId, event.playerName ?? 'Jogador', event.teamId, `${event.playerName ?? 'Jogador'} marcou seu primeiro gol pelo ${teams.find((t) => t.id === event.teamId)!.name}.`);
   }
   const rivalries = after.systems.rivalries.map((r) => ({ ...r }));
-  const table = [before.league, before.otherLeague].find((l) => l.teams.some((t) => t.id === match.homeTeamId))!.standings;
+  if (!teams.some((team) => team.id === match.homeTeamId) || !teams.some((team) => team.id === match.awayTeamId)) return { ...after, systems: { ...after.systems, milestones } };
+  const table = worldLeagues(before).find((l) => l.teams.some((t) => t.id === match.homeTeamId))!.standings;
   const a = table.find((r) => r.teamId === match.homeTeamId);
   const b = table.find((r) => r.teamId === match.awayTeamId);
   const decisive = competition === 'cup' && round >= 5;

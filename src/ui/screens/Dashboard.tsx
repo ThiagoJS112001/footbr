@@ -1,7 +1,8 @@
-import type { League, Team } from '../../engine/models';
+import { formationSlots, formations } from '../../engine/league/lineup';
+import type { League, Team, Tactic } from '../../engine/models';
 import { careerOf, useGameStore } from '../store/gameStore';
-import { dueCupRound } from '../../engine/career/cup';
-import { worldTeams } from '../../engine/career/world';
+import { nextCupEvent } from '../../engine/career/progression';
+import { competitionTeams } from '../../engine/career/cup';
 import { RoundReview } from '../components/RoundReview';
 import { seasonComplete } from '../../engine/career/progression';
 import { recentClubMatches } from '../../engine/career/history';
@@ -25,13 +26,19 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
   const career = careerOf(state);
   let readyLineup = state.lineup;
   try { readyLineup ??= autoPickLineup(team, undefined, true); } catch { /* Os avisos explicam a falta de escalação. */ }
+  const tactic = readyLineup?.tactic ?? team.defaultTactic;
+  const slots = formationSlots(tactic.formation);
+  const eligible = team.squad.filter((player) => !player.injury && !player.discipline.suspendedMatches);
+  const disabled = isAdvancing || systems.board.status === 'dismissed';
   const profile = profileInfo[clubProfile(team)];
-  const cup = dueCupRound(career);
+  const cupEvent = nextCupEvent(career);
+  const cup = cupEvent?.round;
   const standing = league.standings.find((row) => row.teamId === team.id)!;
   const pending = league.schedule.find((round) => round.matches.some((match) => match.status !== 'finished'));
   const nextMatch = (cup?.matches ?? pending?.matches)?.find((match) => match.homeTeamId === team.id || match.awayTeamId === team.id);
-  const homeTeam = worldTeams(career).find((club) => club.id === nextMatch?.homeTeamId);
-  const awayTeam = worldTeams(career).find((club) => club.id === nextMatch?.awayTeamId);
+  const clubs = competitionTeams(career);
+  const homeTeam = clubs.find((club) => club.id === nextMatch?.homeTeamId);
+  const awayTeam = clubs.find((club) => club.id === nextMatch?.awayTeamId);
   const lastResults = recentClubMatches(career);
   const champion = seasonComplete(career) ? league.teams.find((club) => club.id === league.standings[0]?.teamId) : undefined;
   const condition = Math.round(team.squad.reduce((sum, player) => sum + player.fitness, 0) / team.squad.length);
@@ -58,19 +65,38 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
     </div>
     {champion && <section role="status" className={styles.seasonEnd}><Icon name="standings" size={30} /><div><h2>Temporada encerrada</h2><p>Campeão: <strong>{champion.name}</strong>. Seu clube terminou em {standing.position}º lugar. Revise os contratos antes de continuar.</p><button className={styles.primaryButton} onClick={beginNextSeason}>Começar próxima temporada</button></div></section>}
     <RoundReview compact />
+    {!seasonComplete(career) && <Panel title="Elenco e próximo jogo" icon="squad">
+      <p className={styles.matchMeta}>{cupEvent ? cupEvent.cup.name + ' · ' + cupEvent.round.name : 'Rodada ' + currentRound} · {nextMatch && homeTeam && awayTeam ? homeTeam.name + ' × ' + awayTeam.name : 'Folga'}</p>
+      <div className={styles.controls}>
+        <label className={styles.filterLabel}>Formação<select disabled={disabled} value={tactic.formation} onChange={(event) => state.updateTactic({ formation: event.target.value as Tactic['formation'] })}>{formations.map((formation) => <option key={formation}>{formation}</option>)}</select></label>
+        <label className={styles.filterLabel}>Postura<select disabled={disabled} value={tactic.style} onChange={(event) => state.updateTactic({ style: event.target.value as Tactic['style'] })}><option value="defensive">Defensiva</option><option value="balanced">Equilibrada</option><option value="attacking">Ofensiva</option></select></label>
+        <button className={styles.primaryButton} disabled={disabled} onClick={() => void state.advanceRound()}>{isAdvancing ? 'Simulando…' : 'Jogar rodada'}</button>
+        <button className={styles.secondaryButton} disabled={disabled} onClick={state.kickOff}>Acompanhar ao vivo</button>
+        <button className={styles.textButton} disabled={disabled} onClick={() => navigate('lineup')}>Preparar partida</button>
+      </div>
+      <PreparationChecklist team={team} lineup={readyLineup} career={career} />
+      <div className={styles.quickRoster}>
+        <table><thead><tr><th scope="col">Posição</th><th scope="col">Titular</th><th scope="col">Força</th><th scope="col">Condição</th></tr></thead><tbody>{slots.map((position, index) => {
+          const starter = team.squad.find((player) => player.id === readyLineup?.starterIds[index]);
+          const options = eligible.filter((player) => player.id === starter?.id || (!readyLineup?.starterIds.includes(player.id) && (player.primaryPosition === position || player.secondaryPosition === position)));
+          return <tr key={index}><th scope="row">{positionLabels[position]}</th><td><select aria-label={'Titular ' + (index + 1) + ' · ' + positionLabels[position]} value={starter?.id ?? ''} disabled={disabled || !starter} onChange={(event) => state.pickPlayer(index, event.target.value)}>
+            {!starter && <option value="">Sem titular</option>}{options.map((player) => <option key={player.id} value={player.id}>{player.name} · F {player.overall} · {Math.round(player.fitness)}%</option>)}
+          </select></td><td>{starter?.overall ?? '—'}</td><td>{starter ? Math.round(starter.fitness) + '%' : '—'}</td></tr>;
+        })}</tbody></table>
+        <div><h3>Reservas e desfalques</h3><ul className={styles.compactList}>{team.squad.filter((player) => !readyLineup?.starterIds.includes(player.id)).map((player) => <li key={player.id}><span>{player.name}<small>{positionLabels[player.primaryPosition]} · {player.injury ? 'Lesão · ' + player.injury.remainingDays + ' dia(s)' : player.discipline.suspendedMatches ? 'Suspenso · ' + player.discipline.suspendedMatches + ' jogo(s)' : Math.round(player.fitness) + '% de condição'}</small></span><strong>{player.overall}</strong></li>)}</ul></div>
+      </div>
+    </Panel>}
     <div className={styles.clubIdentity}><span className={styles.traitBadge}>{profile.label}</span><span>{profile.description}</span></div>
-    {!seasonComplete(career) && <PreparationChecklist team={team} lineup={readyLineup} career={career} />}
     {(offers > 0 || systems.board.confidence < 35) && <div className={styles.pendingActions}>{offers > 0 && <button className={styles.secondaryButton} onClick={() => navigate('market')}>{offers} proposta(s) para seus jogadores</button>}{systems.board.confidence < 35 && <button className={styles.secondaryButton} onClick={() => navigate('board')}>Diretoria: {systems.board.confidence}% de confiança</button>}</div>}
     <div className={styles.dashboardLayout}>
       <div className={styles.dashboardMain}>
         <Panel title="Próxima Partida" icon={cup ? 'cup' : 'calendar'} className={styles.nextMatchPanel} action={<span className={styles.subtleTag}>{cup ? 'COPA' : pending ? `RODADA ${padRound(currentRound)}` : 'ENCERRADA'}</span>}>
           {nextMatch && homeTeam && awayTeam ? <>
-            <p className={styles.matchMeta}>{cup ? `${systems.cup.name} · ${cup.name}` : `${league.name} · ${currentRound <= league.schedule.length / 2 ? 'Turno' : 'Returno'}`}</p>
+            <p className={styles.matchMeta}>{cup ? `${cupEvent?.cup.name} · ${cup.name}` : `${league.name} · ${currentRound <= league.schedule.length / 2 ? 'Turno' : 'Returno'}`}</p>
             {rivalryBetween(career, homeTeam.id, awayTeam.id) && <p className={styles.derbyTag}>DIA DE CLÁSSICO · {rivalryBetween(career, homeTeam.id, awayTeam.id)!.reason}</p>}
             <div className={styles.matchup}><div><ClubBadge name={homeTeam.name} image={homeTeam.identity?.facts.image} size="large" /><strong>{homeTeam.name}</strong></div><span className={styles.versus}>×</span><div><ClubBadge name={awayTeam.name} image={awayTeam.identity?.facts.image} size="large" /><strong>{awayTeam.name}</strong></div></div>
             <div className={styles.fixtureDetails}><span><Icon name="calendar" size={16} />{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : true, state.source?.seasons[0]?.year)}</span><span><Icon name="stadium" size={16} />{homeTeam.city}</span></div>
           </> : <div className={styles.finishedMessage}>{champion ? 'Mais uma temporada entrou para a história.' : 'Seu clube folga nesta rodada.'}</div>}
-          <div className={styles.matchAction}><button className={styles.primaryButton} onClick={state.kickOff} disabled={isAdvancing || !readyLineup || !pending && !cup || systems.board.status === 'dismissed'}><Icon name="match" size={20} />Jogar com a escalação atual</button><button className={styles.secondaryButton} onClick={() => navigate('lineup')} disabled={isAdvancing || !pending && !cup || systems.board.status === 'dismissed'}><Icon name="lineup" size={20} />{pending || cup ? 'Preparar partida' : 'Temporada concluída'}</button></div>
         </Panel>
         <Panel title={`Classificação · Divisão ${team.division}`} icon="standings" className={styles.dashboardStandings} footer={link('Ver tabela completa', () => navigate('standings'))}>
           <div className={styles.compactStandings}><StandingsTable league={league} selectedTeamId={team.id} compact /></div>
@@ -103,7 +129,7 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
           })}</div>
           {!lastResults.length ? <p className={styles.emptyResults}>A bola ainda não rolou. Seus resultados aparecerão aqui.</p> : <ul className={styles.resultList}>{[...lastResults].reverse().slice(0, 3).map((match) => {
             const home = match.homeTeamId === team.id;
-            const opponent = worldTeams(career).find((club) => club.id === (home ? match.awayTeamId : match.homeTeamId))!;
+            const opponent = clubs.find((club) => club.id === (home ? match.awayTeamId : match.homeTeamId))!;
             return <li key={match.id}><span><small>{home ? 'CASA' : 'FORA'}</small>{opponent.name}</span><strong>{home ? match.score!.home : match.score!.away} – {home ? match.score!.away : match.score!.home}</strong></li>;
           })}</ul>}
         </Panel>

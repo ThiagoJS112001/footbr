@@ -8,13 +8,13 @@ import { calculateStandings, generateSchedule, getTopScorers, formationSlots } f
 import type { CareerSystems } from './types';
 import { createSystems } from './bootstrap';
 import { careerConfig as config } from './config';
-import { replaceTeams, requireManagedClub } from './world';
+import { arrangeDivisions, replaceTeams, requireManagedClub, worldLeagues, worldTeams } from './world';
 import { activeLoan, appendTransfer, canSell, rosterSize, signingInterest, spendingRoom, returnLoans } from './market';
 import { derbyAttendance } from './stories';
 import { archiveSeason } from './history';
 import { createAcademy } from './academy';
 import { createBoard } from './board';
-import { createCup } from './cup';
+import { allCups, createContinentalCups, createCup, createStateCups, resolveBackgroundCup } from './cup';
 
 export interface FinanceEntry {
   teamId?: string;
@@ -42,6 +42,7 @@ export interface Career {
   systems: CareerSystems;
   league: League;
   otherLeague: League;
+  extraLeague?: League;
   selectedTeamId: string | null;
   seed: number;
   season: number;
@@ -59,25 +60,26 @@ export const playerValue = (player: Player) => Math.round(10000 * (player.overal
   * (player.age <= 23 ? 1.3 : Math.max(0.3, 1.15 - (player.age - 24) * 0.07)) / 1000) * 1000;
 export const askingPrice = (player: Player) => Math.round(player.marketValue * 1.15 / 1000) * 1000;
 
-function prepareLeague(base: League, teams: Team[], division: number, seed: number): League {
+function prepareLeague(base: League, teams: Team[], division: number, seed: number, divisionCount = 2): League {
   const league: League = {
-    ...base, id: `${base.id.replace(/-division-[12]/g, '')}-division-${division}`, name: `Liga dos Horizontes · Divisão ${division}`,
+    ...base, id: `${base.id.replace(/-division-[123]/g, '')}-division-${division}`, name: `Liga dos Horizontes · Divisão ${division}`,
     teams: teams.map((team) => ({ ...team, division })),
     schedule: generateSchedule(teams.map((t) => t.id)), standings: [],
-    rules: { promotionSpots: division === 2 ? 4 : 0, qualificationSpots: division === 2 ? 4 : 0, relegationSpots: division === 1 ? 4 : 0 },
+    rules: { promotionSpots: division > 1 ? 4 : 0, qualificationSpots: division === 2 ? 4 : 0, relegationSpots: division < divisionCount ? 4 : 0 },
   };
   league.standings = calculateStandings(league, seed);
   return league;
 }
 
-export function createCareer(seed: number): Career {
-  const world = generateLeague(seed, 40);
+export function createCareer(seed: number, expanded = false): Career {
+  const world = generateLeague(seed, expanded ? 60 : 40);
   world.teams = world.teams.map((team) => ({ ...team, budget: Math.round(team.payroll * (config.initialCashMonths + team.reputation * config.initialCashReputationFactor)), squad: team.squad.map((p) => ({ ...p, potential: Math.max(p.overall, Math.min(94, p.overall + (p.age <= 23 ? 12 : p.age <= 27 ? 5 : 0))) })) }));
-  const top = world.teams.filter((_, index) => index % 2 === 1);
-  const bottom = world.teams.filter((_, index) => index % 2 === 0);
+  const top = expanded ? world.teams.slice(40) : world.teams.filter((_, index) => index % 2 === 1);
+  const bottom = expanded ? world.teams.slice(20, 40) : world.teams.filter((_, index) => index % 2 === 0);
   const free = generateTeam((seed ^ 0xf4ee) >>> 0, 30).squad.map((p, i) => ({ ...p, id: `free-${seed}-${i}`, currentTeamId: null, contract: null, potential: Math.max(p.overall, Math.min(90, p.overall + (p.age < 24 ? 14 : 3))) }));
   const base = {
-    league: prepareLeague(world, top, 1, seed), otherLeague: prepareLeague(world, bottom, 2, seed),
+    league: prepareLeague(world, top, 1, seed), otherLeague: prepareLeague(world, bottom, 2, seed, expanded ? 3 : 2),
+    extraLeague: expanded ? prepareLeague(world, world.teams.slice(0, 20), 3, seed, 3) : undefined,
     selectedTeamId: null, seed, season: 1, lineup: null, finances: [], history: [], freeAgents: free, news: [],
   };
   return { ...base, systems: createSystems(base) };
@@ -86,7 +88,7 @@ export function createCareer(seed: number): Career {
 const changeTeams = replaceTeams;
 
 export function addFinance(career: Career, teamId: string, round: number, description: string, amount: number): Career {
-  const team = [...career.league.teams, ...career.otherLeague.teams].find((t) => t.id === teamId)!;
+  const team = worldTeams(career).find((t) => t.id === teamId)!;
   const balance = team.budget + amount;
   const next = changeTeams(career, [{ ...team, budget: balance }]);
   if (teamId === career.selectedTeamId) next.finances = [...career.finances, { teamId, season: career.season, round, description, amount, balance }];
@@ -96,7 +98,7 @@ export function addFinance(career: Career, teamId: string, round: number, descri
 /** Receitas e despesas aplicadas uma única vez, ao confirmar uma rodada completa. */
 export function settleRound(career: Career, round: number): Career {
   let next = career;
-  for (const league of [career.league, career.otherLeague]) {
+  for (const league of worldLeagues(career)) {
     for (const team of league.teams) {
       const match = league.schedule.find((r) => r.round === round)?.matches.find((m) => m.homeTeamId === team.id);
       const position = league.standings.find((r) => r.teamId === team.id)!.position;
@@ -119,7 +121,7 @@ export function buyPlayer(career: Career, playerId: string, offer: number, salar
   requireManagedClub(career);
   if (!isWindowOpen(round)) throw new Error('Janela fechada. Negocie nas rodadas 1–4 ou 20–23.');
   if (![offer, salary, years].every(Number.isSafeInteger) || offer < 0 || offer > 1e12 || salary < 100 || salary > 1e10 || years < 1 || years > 5) throw new Error('Informe valores válidos e contrato de 1 a 5 anos.');
-  const teams = [...career.league.teams, ...career.otherLeague.teams];
+  const teams = worldTeams(career);
   const buyer = teams.find((t) => t.id === career.selectedTeamId)!;
   const seller = teams.find((t) => t.squad.some((p) => p.id === playerId));
   const player = seller?.squad.find((p) => p.id === playerId) ?? career.freeAgents.find((p) => p.id === playerId);
@@ -152,7 +154,7 @@ export function sellPlayer(career: Career, playerId: string, round: number): Car
   if (activeLoan(career, playerId)) throw new Error('Jogador emprestado só pode ser negociado após o retorno.');
   if (!canSell(seller, player)) throw new Error('Mantenha pelo menos 18 jogadores e cobertura para sua formação.');
   const price = Math.round(player.marketValue * 0.85 / 1000) * 1000;
-  const buyer = [...career.league.teams, ...career.otherLeague.teams]
+  const buyer = worldTeams(career)
     .filter((t) => t.id !== seller.id && spendingRoom(t) >= price + (player.contract?.salary ?? 1000) * config.salaryReserveMonths && rosterSize(career, t.id) < 35)
     .sort((a, b) => a.squad.filter((p) => p.primaryPosition === player.primaryPosition).length - b.squad.filter((p) => p.primaryPosition === player.primaryPosition).length || b.budget - a.budget)[0];
   if (!buyer) throw new Error('Nenhum clube tem orçamento para essa compra agora.');
@@ -182,16 +184,21 @@ export function renewContract(career: Career, playerId: string, round: number): 
 }
 
 export function nextSeason(career: Career): Career {
-  if ([career.league, career.otherLeague].some((l) => l.schedule.some((r) => r.matches.some((m) => m.status !== 'finished')))) throw new Error('Conclua a temporada antes de continuar.');
+  if (worldLeagues(career).some((l) => l.schedule.some((r) => r.matches.some((m) => m.status !== 'finished')))) throw new Error('Conclua a temporada antes de continuar.');
   if (career.systems.board.status === 'dismissed') throw new Error('Aceite um novo emprego para continuar sua carreira.');
-  if (career.systems.cup.status === 'active' && !career.systems.cup.championId) throw new Error('Conclua a copa antes de começar a próxima temporada.');
+  if (allCups(career).some((cup) => cup.status === 'active' && !cup.championId)) throw new Error('Conclua a copa antes de começar a próxima temporada.');
   career = archiveSeason(career);
   career = returnLoans(career);
-  const first = career.league.teams[0].division === 1 ? career.league : career.otherLeague;
-  const second = first === career.league ? career.otherLeague : career.league;
-  const relegatedIds = first.standings.slice(-4).map((r) => r.teamId);
-  const promotedIds = second.standings.slice(0, 4).map((r) => r.teamId);
-  const allTeams = [...first.teams, ...second.teams];
+  const divisions = worldLeagues(career).sort((a, b) => a.teams[0].division - b.teams[0].division);
+  const movement = new Map<string, number>();
+  for (const [index, division] of divisions.entries()) {
+    if (index > 0) for (const row of division.standings.slice(0, 4)) movement.set(row.teamId, -1);
+    if (index < divisions.length - 1) for (const row of division.standings.slice(-4)) movement.set(row.teamId, 1);
+  }
+  const allTeams = worldTeams(career);
+  const boundary = Math.min(career.league.teams[0].division, divisions.length - 1);
+  const promotedIds = divisions[boundary].standings.slice(0, 4).map((r) => r.teamId);
+  const relegatedIds = divisions[boundary - 1].standings.slice(-4).map((r) => r.teamId);
   const names = (ids: string[]) => ids.map((id) => allTeams.find((t) => t.id === id)!.name);
   const row = career.league.standings.find((r) => r.teamId === career.selectedTeamId)!;
   const top = getTopScorers(career.league)[0];
@@ -240,16 +247,18 @@ export function nextSeason(career: Career): Career {
     }
     return { ...team, squad, payroll: payroll({ ...team, squad }), reputation: Math.max(1, Math.min(99, team.reputation + (team.id === career.selectedTeamId ? row.position <= 4 ? 3 : row.position > 16 ? -3 : 0 : 0))) };
   });
-  const topTeams = updated.filter((t) => (t.division === 1 && !relegatedIds.includes(t.id)) || promotedIds.includes(t.id));
-  const bottomTeams = updated.filter((t) => !topTeams.includes(t));
-  const leagues = [prepareLeague(first, topTeams, 1, seed), prepareLeague(second, bottomTeams, 2, seed)];
+  const leagues = divisions.map((division, index) => prepareLeague(division,
+    updated.filter((team) => team.division + (movement.get(team.id) ?? 0) === index + 1), index + 1, seed, divisions.length));
   const own = leagues.find((l) => l.teams.some((t) => t.id === career.selectedTeamId))!;
   const ownClub = own.teams.find((t) => t.id === career.selectedTeamId)!;
   const newcomers = generateTeam(randomInt(rng, 0, 0xffff_ffff), 25).squad.slice(0, 10).map((p, i) => ({ ...p, id: `free-${seed}-season-${career.season + 1}-${i}`, currentTeamId: null, contract: null }));
   const remainingFree = career.freeAgents.filter((p) => p.age < 36).map((p) => ({ ...p, age: p.age + 1, fitness: 100, injury: null, discipline: { yellowCards: 0, suspendedMatches: 0 } }));
-  return { ...career, league: own, otherLeague: leagues.find((l) => l !== own)!, season: career.season + 1, lineup: null,
+  const next: Career = { ...career, ...arrangeDivisions(leagues, own), season: career.season + 1, lineup: null,
     finances: [...career.finances, { teamId: ownClub.id, season: career.season + 1, round: 0, description: 'Saldo inicial da temporada', amount: 0, balance: ownClub.budget }],
     history: [...career.history, summary], freeAgents: [...remainingFree, ...released, ...newcomers], news: [`Temporada ${career.season + 1}: elenco atualizado e calendário pronto.`, ...news].slice(0, 20),
     systems: { ...career.systems, lastSummary: null, marketRound: 0, offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o),
-      academy: createAcademy(ownClub, seed, career.season + 1), board: createBoard(ownClub, own), cup: createCup([...topTeams, ...bottomTeams], seed, career.season + 1) } };
+      academy: createAcademy(ownClub, seed, career.season + 1), board: createBoard(ownClub, own), cup: createCup(leagues.flatMap((league) => league.teams), seed, career.season + 1),
+      stateCups: career.extraLeague ? createStateCups(allTeams, seed) : undefined,
+      continentalCups: career.extraLeague ? createContinentalCups(divisions[0].standings.map((row) => row.teamId), career.systems.cup.championId, seed) : undefined } };
+  return resolveBackgroundCup(next);
 }

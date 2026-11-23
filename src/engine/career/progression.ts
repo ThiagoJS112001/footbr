@@ -5,16 +5,24 @@ import type { RoundSession } from '../league/season';
 import { finishMatch } from '../simulation/simulateMatch';
 import type { Career } from './career';
 import { seasonSeed, settleRound } from './career';
-import { dueCupRound, finishCupRound, resolveBackgroundCup, startCupRound } from './cup';
+import { allCups, competitionTeams, dueCupRound, finishCupRound, managedCup, resolveBackgroundCup, startCupRound } from './cup';
 import { evaluateBoard } from './board';
 import { processAiMarket } from './market';
-import { completedRounds, ownTeam, worldTeams } from './world';
+import { arrangeDivisions, completedRounds, ownTeam, worldLeagues } from './world';
 import { matchInsights } from './insights';
 import { recordMatchStories } from './stories';
 
-export type Competition = 'league' | 'cup';
-export const nextCompetition = (career: Career): Competition => dueCupRound(career) ? 'cup' : 'league';
-export const seasonComplete = (career: Career) => completedRounds(career) === career.league.schedule.length && (career.systems.cup.status === 'deferred' || !!career.systems.cup.championId);
+export const cupKinds = ['state', 'cup', 'continental', 'continental-secondary'] as const;
+export type Competition = 'league' | typeof cupKinds[number];
+export function nextCupEvent(career: Career) {
+  for (const kind of cupKinds) {
+    const cup = managedCup(career, kind);
+    const round = cup && dueCupRound(career, cup);
+    if (cup && round && round.matches.some((m) => m.homeTeamId === career.selectedTeamId || m.awayTeamId === career.selectedTeamId)) return { kind, cup, round };
+  }
+}
+export const nextCompetition = (career: Career): Competition => nextCupEvent(career)?.kind ?? 'league';
+export const seasonComplete = (career: Career) => completedRounds(career) === career.league.schedule.length && allCups(career).every((cup) => cup.status === 'deferred' || !!cup.championId);
 export function repairLineup(career: Career, preferred?: Lineup | null): Career {
   try {
     const lineup = autoPickLineup(ownTeam(career), preferred ?? undefined, !preferred);
@@ -28,34 +36,36 @@ export function repairLineup(career: Career, preferred?: Lineup | null): Career 
 export function startCareerEvent(career: Career, lineup: Lineup | null): { competition: Competition; session: RoundSession } {
   if (career.systems.board.status === 'dismissed') throw new Error('Seu vínculo foi encerrado. Escolha uma proposta na Diretoria para continuar.');
   const competition = nextCompetition(career);
-  const session = competition === 'cup' ? startCupRound(career, lineup) : startRound(career.league, seasonSeed(career), lineup ? { [career.selectedTeamId!]: lineup } : {});
+  const session = competition !== 'league' ? startCupRound(career, lineup, {}, managedCup(career, competition)) : startRound(career.league, seasonSeed(career), lineup ? { [career.selectedTeamId!]: lineup } : {});
   return { competition, session };
 }
 export function finishCareerEvent(career: Career, competition: Competition, session: RoundSession): Career {
   const previous = career.league.standings.find((r) => r.teamId === career.selectedTeamId)!;
   const beforeBalance = ownTeam(career).budget;
   let next: Career;
-  if (competition === 'cup') next = finishCupRound(career, session);
+  if (competition !== 'league') next = finishCupRound(career, session, managedCup(career, competition));
   else {
     const league = finishRound(career.league, session);
-    const otherLeague = playRound(career.otherLeague, seasonSeed(career));
-    next = settleRound({ ...career, league, otherLeague }, session.round);
+    const divisions = worldLeagues(career).map((division) => division === career.league ? league : playRound(division, seasonSeed(career)));
+    next = settleRound({ ...career, ...arrangeDivisions(divisions, league) }, session.round);
     next = evaluateBoard(next, session.round);
     next = resolveBackgroundCup(next);
     if (session.round < career.league.schedule.length) next = processAiMarket(next, session.round + 1);
   }
   next = resolveBackgroundCup(next);
-  const previouslyFinished = new Set([...career.league.schedule, ...career.otherLeague.schedule, ...career.systems.cup.rounds].flatMap((r) => r.matches).filter((m) => m.status === 'finished').map((m) => m.id));
-  const newlyFinished = [...[next.league, next.otherLeague].flatMap((l) => l.schedule.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'league' as const })))),
-    ...next.systems.cup.rounds.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'cup' as const })))].filter(({ match: m }) => m.status === 'finished' && !previouslyFinished.has(m.id));
+  const previouslyFinished = new Set([...worldLeagues(career).flatMap((league) => league.schedule), ...allCups(career).flatMap((cup) => cup.rounds)].flatMap((r) => r.matches).filter((m) => m.status === 'finished').map((m) => m.id));
+  const newlyFinished = [...worldLeagues(next).flatMap((l) => l.schedule.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'league' as const })))),
+    ...allCups(next).flatMap((cup) => cup.rounds).flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'cup' as const })))].filter(({ match: m }) => m.status === 'finished' && !previouslyFinished.has(m.id));
   for (const event of newlyFinished) next = recordMatchStories(career, next, event.match, event.competition, event.round);
-  const matches = competition === 'cup' ? next.systems.cup.rounds.find((r) => r.round === session.round)!.matches : next.league.schedule.find((r) => r.round === session.round)!.matches;
+  const cup = competition === 'league' ? undefined : managedCup(next, competition);
+  const stage = cup?.rounds.find((round) => round.round === session.round);
+  const matches = stage?.matches ?? next.league.schedule.find((r) => r.round === session.round)!.matches;
   const match = matches.find((m) => m.homeTeamId === career.selectedTeamId || m.awayTeamId === career.selectedTeamId);
   const team = ownTeam(next);
   const row = next.league.standings.find((r) => r.teamId === career.selectedTeamId)!;
-  const name = (id: string) => worldTeams(next).find((t) => t.id === id)!.name;
+  const name = (id: string) => competitionTeams(next).find((t) => t.id === id)!.name;
   const result = match ? `${name(match.homeTeamId)} ${match.score!.home}–${match.score!.away} ${name(match.awayTeamId)}${match.penalties ? ` (pênaltis ${match.penalties.home}–${match.penalties.away})` : ''}` : 'Seu clube folgou nesta rodada.';
-  const title = competition === 'cup' ? next.systems.cup.rounds.find((r) => r.round === session.round)!.name : `Rodada ${session.round}`;
+  const title = stage ? (cup!.weeks ? cup!.name + ' · ' + stage.name : stage.name) : `Rodada ${session.round}`;
   const summary = { competition, round: session.round, teamId: team.id, title, result, position: row.position, positionChange: previous.position - row.position, points: row.points,
     moneyChange: team.budget - beforeBalance, absences: team.squad.filter((p) => p.injury || p.discipline.suspendedMatches).map((p) => `${p.name}: ${p.injury ? `${p.injury.remainingDays} dias de lesão` : `${p.discipline.suspendedMatches} jogo(s) de suspensão`}`), notes: match ? matchInsights(match, team.id) : [] };
   return repairLineup({ ...next, systems: { ...next.systems, lastSummary: summary }, news: [`${title}: ${result}`, ...next.news].slice(0, 20) }, career.lineup);

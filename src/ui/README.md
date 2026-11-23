@@ -15,11 +15,11 @@ Inter é incluída no bundle e todos os ícones usam Lucide.
 - `App.module.css` e `components/DataTable.module.css`: estilos isolados e layout
   responsivo. `global.css` define o tema e carrega fontes incluídas no bundle.
 
-A UI importa APIs e tipos do motor. Ao criar um jogo, prepara duas divisões de
+A UI importa APIs e tipos do motor. Ao criar um jogo, prepara três divisões de
 20 clubes. O fluxo prepara a escalação, chama `startCareerEvent`, avança minutos
 com `stepRound` e confirma com `finishCareerEvent`. O próximo compromisso pode
 ser liga ou copa; contas, mercado e diretoria avançam no momento correspondente. A ação
-`advanceRound` mantém disponível a simulação direta para testes e ferramentas.
+Na Central do Clube, **Jogar rodada** usa a simulação direta de `advanceRound`.
 
 A navegação é local à store. Saves versionados ficam no `localStorage`, com
 automático e três slots manuais comprimidos, além de exportação/importação JSON

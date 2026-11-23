@@ -10,7 +10,7 @@ import { ownTeam } from '../../src/engine/career/world';
 import { autoPickLineup, LineupUnavailableError } from '../../src/engine/league';
 import { startRound, stepRound } from '../../src/engine/league/season';
 import { changeMatchStyle } from '../../src/engine/simulation/simulateMatch';
-import { seasonSeed } from '../../src/engine/career/career';
+import { createCareer, seasonSeed } from '../../src/engine/career/career';
 import type { Career } from '../../src/engine/career/career';
 import type { Lineup } from '../../src/engine/models';
 import { saveKey } from '../../src/ui/store/gameStore';
@@ -19,7 +19,7 @@ import { prospectReport } from '../../src/engine/career/academy';
 beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); });
 afterEach(cleanup);
 function start(cupParticipant = false) {
-  useGameStore.getState().startNewGame(42);
+  useGameStore.getState().startCustomGame(createCareer(42));
   const state = useGameStore.getState();
   state.selectTeam(cupParticipant ? state.systems.cup.rounds[0].matches[0].homeTeamId : state.league!.teams[19].id);
 }

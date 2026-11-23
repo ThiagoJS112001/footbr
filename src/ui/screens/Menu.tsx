@@ -17,9 +17,10 @@ export function Menu() {
           {selectedTeamId && <button className={styles.secondaryButton} onClick={() => navigate('dashboard')}>{live ? 'Retomar partida' : 'Continuar temporada'}</button>}
         </div>
         <div className={styles.menuActions}><button className={styles.secondaryButton} disabled={!!live} onClick={() => navigate('data-import')}><Icon name="save" /> Importação de Dados · Base para nova carreira</button></div>
+        <div className={styles.menuActions}><button className={styles.secondaryButton} disabled={!!live} onClick={() => navigate('base-editor')}>Editor de clubes e elencos</button></div>
         <SaveControls compact />
         {error && <p role="alert" className={styles.error}>{error}</p>}
-        <div className={styles.menuNumbers}><div><strong>40</strong><span>clubes para comandar</span></div><div><strong>02</strong><span>divisões com acesso</span></div><div><strong>38</strong><span>rodadas por temporada</span></div></div>
+        <div className={styles.menuNumbers}><div><strong>60</strong><span>clubes para comandar</span></div><div><strong>03</strong><span>divisões com acesso</span></div><div><strong>38</strong><span>rodadas por temporada</span></div></div>
       </section>
       <div className={styles.pitchArt} aria-hidden="true">
         <div className={styles.pitchCaption}><span>O JOGO COMEÇA FORA DAS QUATRO LINHAS</span><span>01 / 38</span></div>

@@ -1,3 +1,4 @@
+import { createCareer } from '../../src/engine/career/career';
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, render, screen, within } from '@testing-library/react';
@@ -10,7 +11,7 @@ import { autoPickLineup } from '../../src/engine/league';
 import { startRound, stepRound } from '../../src/engine/league/season';
 import { simulationConfig } from '../../src/engine/simulation/config';
 
-beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); useGameStore.getState().startNewGame(42); useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[19].id); });
+beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); useGameStore.getState().startCustomGame(createCareer(42)); useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[19].id); });
 afterEach(cleanup);
 
 describe('ritmo e identidade na interface', () => {
@@ -39,7 +40,7 @@ describe('ritmo e identidade na interface', () => {
     const expected = autoPickLineup(ownTeam(careerOf(state)), undefined, true);
     render(<App />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Jogar com a escalação atual' }));
+    await user.click(screen.getByRole('button', { name: 'Acompanhar ao vivo' }));
     await user.click(screen.getByRole('button', { name: 'Pausar' }));
     expect(useGameStore.getState().lineup).toEqual(expected);
     expect(screen.getByRole('region', { name: 'Classificação provisória' })).toBeInTheDocument();

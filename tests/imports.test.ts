@@ -12,6 +12,7 @@ import { askingPrice, buyPlayer } from '../src/engine/career/career';
 import { createSystems } from '../src/engine/career/bootstrap';
 import { simulateCareerEvent } from '../src/engine/career/progression';
 import { decodeSave, encodeSave } from '../src/engine/save/save';
+import { signingInterest } from '../src/engine/career/market';
 
 const databases: CatalogDatabase[] = [];
 const db = (path = ':memory:') => { const database = new CatalogDatabase(path); databases.push(database); return database; };
@@ -50,7 +51,7 @@ describe('catálogo persistente e carreiras independentes', () => {
     initial.league.teams[0].budget = 1e9;
     initial.systems = createSystems(initial);
     const seller = initial.league.teams[1], player = seller.squad.find((p) => p.primaryPosition === 'GK')!;
-    const moved = buyPlayer(initial, player.id, askingPrice(player), Math.ceil(player.contract!.salary * 1.2), 3, 1);
+    const moved = buyPlayer(initial, player.id, askingPrice(player), signingInterest(player, initial.league.teams[0], seller).salary, 3, 1);
     expect(moved.league.teams[0].squad.some((p) => p.id === player.id && p.currentTeamId === initial.selectedTeamId)).toBe(true);
     expect(moved.league.teams[1].squad).toHaveLength(24);
     expect(another.league.teams[1].squad).toHaveLength(25);
@@ -64,14 +65,16 @@ describe('catálogo persistente e carreiras independentes', () => {
     const persisted = database.db.prepare('SELECT data FROM careers WHERE id=?').get(initial.source!.id) as { data: string };
     expect(JSON.parse(persisted.data).league.teams[1].squad).toHaveLength(25);
     expect(JSON.parse(persisted.data).league.teams[0].name).toBe(originalClub.name);
-    expect(database.db.prepare('SELECT COUNT(*) AS count FROM career_players WHERE career_id=?').get(initial.source!.id)).toEqual({ count: 1025 });
+    expect(database.db.prepare('SELECT COUNT(*) AS count FROM career_players WHERE career_id=?').get(initial.source!.id)).toEqual({ count: 1525 });
   });
   it('mantém identidade e origem no save, joga uma rodada e rejeita metadados e imagens inválidos', async () => {
     const { service, database } = await imported();
     const career = service.createCareer([database.seasons()[0].id], 123, { ...defaultSimulation, minOverall: 65, maxOverall: 65, fitness: 91, morale: 80 });
     career.selectedTeamId = career.league.teams[0].id; career.systems = createSystems(career);
     expect(career.league.teams[0].squad.every((p) => p.fitness === 91 && p.morale === 80 && Math.abs(p.overall - 65) <= 1)).toBe(true);
-    const played = simulateCareerEvent(career, null).career;
+    let event = simulateCareerEvent(career, null);
+    while (event.competition === 'state') event = simulateCareerEvent(event.career, event.career.lineup);
+    const played = event.career;
     const data = { career: played, progress: null, lastRound: 1 };
     expect(decodeSave(encodeSave(data)).career.source).toEqual(career.source);
     expect(decodeSave(encodeSave(data)).career.league.teams[0].identity).toEqual(career.league.teams[0].identity);

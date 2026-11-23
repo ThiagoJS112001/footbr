@@ -1,7 +1,8 @@
+import { createCareer } from '../../src/engine/career/career';
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen, within, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DataTable } from '../../src/ui/components/DataTable';
 import type { Column } from '../../src/ui/components/DataTable';
@@ -13,6 +14,8 @@ import { generateLeague } from '../../src/engine/generators/league';
 import { simulateSeason } from '../../src/engine/league';
 import { playCupRound } from '../../src/engine/career/cup';
 import { careerOf } from '../../src/ui/store/gameStore';
+import { nextCompetition, repairLineup } from '../../src/engine/career/progression';
+import { ownTeam, replaceTeams } from '../../src/engine/career/world';
 
 afterEach(cleanup);
 beforeEach(() => useGameStore.setState({ ...initialGameData }));
@@ -51,7 +54,7 @@ describe('componentes da interface', () => {
   });
 
   it('lista os 20 clubes com reputação e overall e permite assumir um clube', async () => {
-    useGameStore.getState().startNewGame(2026);
+    useGameStore.getState().startCustomGame(createCareer(2026));
     const league = useGameStore.getState().league!;
     render(<ClubSelection league={league} />);
     const buttons = screen.getAllByRole('button', { name: /^Assumir / });
@@ -96,9 +99,13 @@ describe('componentes da interface', () => {
     await user.click(screen.getByRole('button', { name: 'Jogar partida' }));
     expect(screen.getByRole('heading', { name: 'Bola rolando' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));
-    await waitFor(() => expect(useGameStore.getState().currentRound).toBe(2));
+    await waitFor(() => expect(useGameStore.getState().systems.lastSummary?.competition).toBe('state'));
     expect(screen.getByRole('heading', { name: 'Apito final' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Próxima rodada' }));
+    for (let i = 0; i < 2 && useGameStore.getState().currentRound === 1; i++) {
+      await user.click(screen.getByRole('button', { name: 'Jogar rodada' }));
+      await waitFor(() => expect(useGameStore.getState().isAdvancing).toBe(false));
+    }
     expect(useGameStore.getState().league!.standings.find((row) => row.teamId === teamId)!.played).toBe(1);
     expect(screen.getByText('FORMA RECENTE')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Classificação' }));
@@ -112,8 +119,51 @@ describe('componentes da interface', () => {
     expect(screen.getByRole('table', { name: 'Elenco do clube' })).toBeInTheDocument();
   });
 
+  it('troca um titular suspenso e joga cinco rodadas da liga na central', async () => {
+    const user = userEvent.setup();
+    const initial = useGameStore.getState();
+    initial.startNewGame(42);
+    initial.selectTeam(useGameStore.getState().league!.teams[19].id);
+    for (let i = 0; i < 2 && nextCompetition(careerOf(useGameStore.getState())) === 'state'; i++) await initial.advanceRound();
+    const career = careerOf(useGameStore.getState());
+    const team = ownTeam(career);
+    const suspended = career.lineup!.starterIds[0];
+    const updated = replaceTeams(career, [{ ...team, squad: team.squad.map((player) => player.id === suspended
+      ? { ...player, discipline: { ...player.discipline, suspendedMatches: 2 } } : player) }]);
+    useGameStore.setState(repairLineup(updated, career.lineup));
+    render(<App />);
+    expect(screen.getByText(/Suspenso · 2 jogo/)).toBeInTheDocument();
+    const goalkeeper = screen.getByRole('combobox', { name: 'Titular 1 · GOL' }) as HTMLSelectElement;
+    const replacement = Array.from(goalkeeper.options).find((option) => option.value !== goalkeeper.value)!;
+    await user.selectOptions(goalkeeper, replacement.value);
+    expect(useGameStore.getState().lineup?.starterIds[0]).toBe(replacement.value);
+    for (let i = 0; i < 8 && useGameStore.getState().currentRound < 6; i++) {
+      await act(async () => { screen.getByRole('button', { name: 'Jogar rodada' }).click(); });
+      await waitFor(() => expect(useGameStore.getState().isAdvancing).toBe(false));
+      expect(useGameStore.getState().screen).toBe('dashboard');
+    }
+    expect(useGameStore.getState().currentRound).toBe(6);
+    expect(screen.getByRole('heading', { name: 'Resumo · Rodada 5' })).toBeInTheDocument();
+  }, 15000);
+
+  it('aplica as alterações do editor à seleção e ao elenco de uma nova carreira', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Editor de clubes e elencos' }));
+    const clubName = screen.getByRole('textbox', { name: 'Nome do clube' });
+    const playerName = screen.getByRole('textbox', { name: 'Jogador 1' });
+    await user.clear(clubName);
+    await user.type(clubName, 'Clube de Teste');
+    await user.clear(playerName);
+    await user.type(playerName, 'Goleiro de Teste');
+    await user.click(screen.getByRole('button', { name: 'Jogar com esta base' }));
+    await user.click(await screen.findByRole('button', { name: 'Assumir Clube de Teste' }));
+    await user.click(screen.getByRole('button', { name: 'Elenco' }));
+    expect(screen.getByRole('table', { name: 'Elenco do clube' })).toHaveTextContent('Goleiro de Teste');
+  });
+
   it('exibe campeão e desabilita o avanço após a última rodada', () => {
-    useGameStore.getState().startNewGame(2026);
+    useGameStore.getState().startCustomGame(createCareer(2026));
     const state = useGameStore.getState();
     const league = state.league!;
     // O resultado completo é produzido pelo motor real, sem alterar suas regras.
@@ -124,6 +174,6 @@ describe('componentes da interface', () => {
     render(<App />);
     expect(screen.getByRole('status')).toHaveTextContent('Temporada encerrada');
     expect(screen.getByRole('status')).toHaveTextContent(completed.teams.find((team) => team.id === completed.standings[0].teamId)!.name);
-    expect(screen.getByRole('button', { name: 'Temporada concluída' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Avançar' })).toBeDisabled();
   });
 });

@@ -3,7 +3,7 @@ import type { League, MatchEvent, Team } from '../../engine/models';
 import type { PlayingStyle } from '../../engine/models/Tactic';
 import { matchSnapshot } from '../../engine/simulation/simulateMatch';
 import { careerOf, useGameStore } from '../store/gameStore';
-import { worldTeams } from '../../engine/career/world';
+import { competitionTeams, managedCup } from '../../engine/career/cup';
 import { RoundReview } from '../components/RoundReview';
 import { PageHeader } from '../components/PageHeader';
 import { ClubBadge } from '../components/ClubBadge';
@@ -18,8 +18,10 @@ import { playerTrait, traitInfo } from '../../engine/models/personality';
 export function MatchScreen({ league, team }: { league: League; team: Team }) {
   const state = useGameStore();
   const { live, lastRound, lastCupRound, lastCompetition, liveCompetition, systems, paused, speed, tickMatch, togglePause, setSpeed, changeStyle, substitute, finishMatchNow, navigate } = state;
-  const teams = worldTeams(careerOf(state));
+  const career = careerOf(state);
+  const teams = competitionTeams(career);
   const competition = live ? liveCompetition : lastCompetition;
+  const cup = competition === 'league' ? undefined : managedCup(career, competition);
   const [outId, setOutId] = useState('');
   const [inId, setInId] = useState('');
   const [onlyHighlights, setOnlyHighlights] = useState(false);
@@ -28,7 +30,7 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
     const timer = window.setInterval(tickMatch, 700 / speed);
     return () => window.clearInterval(timer);
   }, [!!live, paused, speed, tickMatch]);
-  const matches = live ? [...live.games.map(matchSnapshot), ...live.forfeits] : competition === 'cup' ? systems.cup.rounds.find((r) => r.round === lastCupRound)?.matches ?? [] : league.schedule.find((r) => r.round === lastRound)?.matches ?? [];
+  const matches = live ? [...live.games.map(matchSnapshot), ...live.forfeits] : cup ? cup.rounds.find((r) => r.round === lastCupRound)?.matches ?? [] : league.schedule.find((r) => r.round === lastRound)?.matches ?? [];
   const match = matches.find((m) => m.homeTeamId === team.id || m.awayTeamId === team.id);
   const session = live?.games.find((g) => g.home.team.id === team.id || g.away.team.id === team.id);
   const side = session?.home.team.id === team.id ? session.home : session?.away;
@@ -41,7 +43,7 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
   const projectedLeague = live && competition === 'league' ? { ...league, schedule: league.schedule.map((r) => r.round === live.round ? { ...r, matches: matches.map((m) => ({ ...m, status: 'finished' as const })) } : r) } : null;
   if (projectedLeague) projectedLeague.standings = calculateStandings(projectedLeague, seasonSeed(careerOf(state)));
   const projectedRow = projectedLeague?.standings.find((r) => r.teamId === team.id);
-  const projectionNote = projectedRow && projectedLeague ? `${projectedRow.position}º lugar · ${projectedRow.points} pontos · ${team.division === 2 ? projectedRow.position <= 4 ? 'Na zona de acesso' : `${Math.max(0, projectedLeague.standings[3].points - projectedRow.points)} ponto(s) atrás do G4` : projectedRow.position >= 17 ? 'Na zona de rebaixamento' : `${Math.max(0, projectedRow.points - projectedLeague.standings[16].points)} ponto(s) acima do Z4`}` : '';
+  const projectionNote = projectedRow && projectedLeague ? `${projectedRow.position}º lugar · ${projectedRow.points} pontos · ${projectedLeague.rules.promotionSpots > 0 && (projectedLeague.rules.relegationSpots === 0 || projectedRow.position <= 10) ? projectedRow.position <= 4 ? 'Na zona de acesso' : `${Math.max(0, projectedLeague.standings[3].points - projectedRow.points)} ponto(s) atrás do G4` : projectedRow.position >= 17 ? 'Na zona de rebaixamento' : `${Math.max(0, projectedRow.points - projectedLeague.standings[16].points)} ponto(s) acima do Z4`}` : '';
   if (!match) return <><PageHeader eyebrow="DIA DE JOGO" title="Partida" description="Prepare a escalação para acompanhar a próxima rodada." /><button className={styles.primaryButton} onClick={() => navigate('lineup')}>Preparar partida</button></>;
   const home = teams.find((t) => t.id === match.homeTeamId)!;
   const away = teams.find((t) => t.id === match.awayTeamId)!;
@@ -52,7 +54,7 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
     return outgoing && (p.primaryPosition === outgoing.primaryPosition || p.secondaryPosition === outgoing.primaryPosition);
   }) ?? [];
   return <>
-    <PageHeader eyebrow={competition === 'cup' ? `${systems.cup.name} · ${systems.cup.rounds.find((r) => r.round === (live?.round ?? lastCupRound))?.name}` : `RODADA ${live?.round ?? lastRound}`} title={live ? 'Bola rolando' : 'Apito final'} description={live ? 'Suas decisões passam a valer no próximo minuto.' : 'Resultados confirmados. Finanças e condição física atualizadas.'} />
+    <PageHeader eyebrow={cup ? `${cup.name} · ${cup.rounds.find((r) => r.round === (live?.round ?? lastCupRound))?.name}` : `RODADA ${live?.round ?? lastRound}`} title={live ? 'Bola rolando' : 'Apito final'} description={live ? 'Suas decisões passam a valer no próximo minuto.' : 'Resultados confirmados. Finanças e condição física atualizadas.'} />
     {!live && <RoundReview />}
     <section className={styles.panel}>
       <div className={styles.matchClock} aria-live="off">{live ? `${minute}′ · ${paused ? 'Pausado' : 'Em jogo'}` : match.forfeitTeamIds?.length ? 'Encerrado · W.O.' : '90′ · Encerrado'}</div>

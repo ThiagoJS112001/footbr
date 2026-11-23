@@ -17,7 +17,7 @@ Funções puras, sem React, DOM ou armazenamento. `config.ts` centraliza economi
 
 ## Copa
 
-40 clubes, 39 eliminatórias de jogo único. Dezesseis sorteados disputam a preliminar; 24 entram na segunda fase. Etapas após as rodadas 4, 8, 14, 20, 28 e 36.
+A copa nacional tem seis fases após as rodadas 4, 8, 14, 20, 28 e 36. Dos 60 clubes, 56 disputam a preliminar e quatro entram na segunda fase. Nas carreiras de 40 clubes, a preliminar reúne 16 clubes e 24 avançam direto. O estadual é jogado antes da liga. Duas copas continentais começam no segundo ano com oito equipes cada, incluindo quatro convidados fictícios por torneio.
 
 Empates usam pênaltis reproduzíveis, sem alterar gols ou estatísticas dos 90 minutos. W.O. duplo usa sorteio administrativo, sem simular cobranças com atletas inelegíveis. Só participantes recebem desgaste e cumprem suspensões. A copa não duplica a recuperação semanal; amarelos e suspensões são compartilhados entre competições para manter a regra simples. Etapas sem o clube controlado são automáticas.
 
@@ -43,7 +43,7 @@ Antes de envelhecer, liberar ou aposentar, `archiveSeason` registra estatística
 
 `market.ts` mantém a observação com valor/clube de referência, uma contraproposta por oferta recebida e empréstimos de reservas. A taxa é de 5% do valor de mercado; o destino paga os salários integrais. `returnLoans` devolve os atletas após arquivar a temporada e antes de atualizar contratos. Retornos ocupam vagas reservadas no limite de 35; atletas emprestados ficam fora das vendas, renovações e novas cessões.
 
-`stories.ts` registra estreias, primeiros gols, transferências e reencontros, além de rivalidades da cidade e de decisões. Cidades ausentes não criam clássicos. Os jogos confirmados das duas divisões e da copa alimentam a memória, e os títulos entram ao arquivar a temporada. Vendas ficam visíveis na memória de origem e destino. Clássicos elevam a procura por ingressos em 10%, ou 20% para clubes de torcida, sem exceder a capacidade.
+`stories.ts` registra estreias, primeiros gols, transferências e reencontros, além de rivalidades da cidade e de decisões. Cidades ausentes não criam clássicos. Os resultados das divisões e das copas alimentam a memória, e os títulos entram ao arquivar a temporada. Vendas ficam visíveis na memória de origem e destino. Clássicos elevam a procura por ingressos em 10%, ou 20% para clubes de torcida, sem exceder a capacidade.
 
 ## Saves
 
