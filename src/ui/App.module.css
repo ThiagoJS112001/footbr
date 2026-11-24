@@ -91,15 +91,16 @@
 .advanceButton { min-width: 153px; min-height: 52px; font-size: 17px; }
 .advanceButton > svg { fill: currentColor; stroke-width: 1.5; }
 .content { flex: 1; width: 100%; max-width: 1800px; margin: 0 auto; padding: 28px; min-width: 0; }
-.dashboardContent { max-width: none; background-image: var(--stadium-overlay), var(--stadium-image); background-size: cover; background-position: center top; }
+.dashboardContent { max-width: none; background: linear-gradient(180deg, #051623a3, #061623 790px), var(--stadium-image) center top / 100% auto no-repeat, #061623; }
 .workspaceFooter { display: flex; justify-content: space-between; gap: 18px; padding: 20px 28px; color: var(--subtle); font-size: 8px; letter-spacing: .8px; }
 .pageHeader { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
 .pageHeader > div { min-width: 0; }
 .pageHeader h1 { color: var(--text); font-size: clamp(24px, 2.2vw, 33px); line-height: 1.25; letter-spacing: -.8px; font-weight: 750; margin-bottom: 8px; }
 .clubHero { padding: 2px 0 4px; }
-.clubHero .pageHeader { min-height: 94px; margin-bottom: 20px; }
+.clubHero .pageHeader { min-height: auto; margin-bottom: 16px; }
 .clubHero .eyebrow { color: var(--muted); }
-.clubHero .pageHeader h1 { font-size: clamp(27px, 2.5vw, 36px); }
+.clubHero .pageHeader h1 { position: relative; padding-left: 15px; font-size: clamp(27px, 2.6vw, 40px); font-weight: 800; }
+.clubHero .pageHeader h1::before { content: ''; position: absolute; inset: 12% auto 12% 0; width: 5px; border-radius: 5px; background: #21eb57; }
 .heroClub { display: flex; align-items: center; gap: 15px; flex-shrink: 0; max-width: 240px; }
 .heroClub > span:last-child { font-size: 12px; font-weight: 650; line-height: 1.5; max-width: 150px; }
 .heroClub small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; margin-top: 5px; }
