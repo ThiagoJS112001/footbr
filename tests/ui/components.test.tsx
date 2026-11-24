@@ -78,8 +78,10 @@ describe('componentes da interface', () => {
     expect(screen.getAllByRole('row')).toHaveLength(4);
     for (const row of screen.getAllByRole('row').slice(1)) expect(row).toHaveTextContent('GOL');
     expect(screen.getByRole('columnheader', { name: 'Força' })).toHaveAttribute('aria-sort', 'descending');
-    await user.selectOptions(screen.getByRole('combobox'), 'all');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por posição' }), 'all');
     expect(screen.getAllByRole('row')).toHaveLength(26);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Ordenar por' }), 'age');
+    expect(screen.getByRole('columnheader', { name: 'Idade' })).toHaveAttribute('aria-sort', 'descending');
   });
 
   it('retoma uma carreira salva pelo menu após recarregar o jogo', async () => {

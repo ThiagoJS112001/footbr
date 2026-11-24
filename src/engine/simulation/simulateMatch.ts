@@ -124,7 +124,17 @@ function disciplinaryEvents(side: Side, minute: number, rng: Rng, events: MatchE
   }
 }
 
-function shoot(attacking: Side, defending: Side, home: boolean, minute: number, rng: Rng, events: MatchEvent[], commentary: NonNullable<Match['commentary']>, config: SimulationConfig): void {
+function goalAssist(attacking: Side, shooter: Player, config: SimulationConfig, seed: number): string | null {
+  // Use an independent sample so assists do not change the result of the match.
+  const rng = createRng((seed ^ 0xa55157) >>> 0);
+  if (rng() >= .7) return null;
+  const candidates = attacking.active.filter((p) => p.id !== shooter.id && p.primaryPosition !== 'GK');
+  const weights = candidates.map((p) => p.attributes.passing * config.roles[p.primaryPosition].midfield);
+  let draw = rng() * weights.reduce((sum, value) => sum + value, 0);
+  return candidates.find((_, index) => (draw -= weights[index]) < 0)?.id ?? null;
+}
+
+function shoot(attacking: Side, defending: Side, home: boolean, minute: number, rng: Rng, events: MatchEvent[], commentary: NonNullable<Match['commentary']>, config: SimulationConfig, assistSeed: number): void {
   const shooters = attacking.active.filter((player) => config.roles[player.primaryPosition].shooter > 0);
   if (!shooters.length) return;
   const advantage = home ? config.homeAdvantage : -config.homeAdvantage;
@@ -160,7 +170,7 @@ function shoot(attacking: Side, defending: Side, home: boolean, minute: number, 
     attacking.stats.shotsOnTarget++;
     if (rng() < goalChance) {
       attacking.goals++;
-      events.push({ minute, teamId: attacking.team.id, type: 'goal', playerId: shooter.id, playerName: shooter.name, assistPlayerId: null });
+      events.push({ ...base, type: 'goal', assistPlayerId: goalAssist(attacking, shooter, config, assistSeed) });
     } else {
       commentary.push({ ...base, kind: 'save', text: `${chance ? 'Grande chance! ' : ''}${shooter.name} finaliza e ${keeper?.name ?? 'o goleiro improvisado'} defende.` });
       if (rng() < config.cornerAfterSave) attacking.stats.corners++;
@@ -210,7 +220,7 @@ function tick(session: MatchSession): void {
     const hasBall = rng() < homePossession;
     const attacking = hasBall ? h : a;
     attacking.possessionMinutes++;
-    shoot(attacking, hasBall ? a : h, hasBall, minute, rng, events, session.commentary, config);
+    shoot(attacking, hasBall ? a : h, hasBall, minute, rng, events, session.commentary, config, session.rngState);
     if (minute % 10 === 0) for (const side of [h, a]) {
       const shots = session.commentary.filter((e) => e.teamId === side.team.id && e.minute > minute - 10 && e.kind !== 'pressure').length
         + events.filter((e) => e.type === 'goal' && e.teamId === side.team.id && e.minute > minute - 10).length;

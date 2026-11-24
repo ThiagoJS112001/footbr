@@ -56,15 +56,19 @@ describe('ritmo e identidade na interface', () => {
     render(<App />);
     const user = userEvent.setup();
     await user.selectOptions(screen.getByRole('combobox', { name: 'Postura' }), 'defensive');
+    await user.click(screen.getByRole('button', { name: 'Tática' }));
     await user.click(screen.getByRole('button', { name: 'Salvar Copa' }));
     const saved = structuredClone(useGameStore.getState().lineup);
+    await user.click(within(screen.getByRole('main')).getByRole('button', { name: 'Escalação' }));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Postura' }), 'attacking');
+    await user.click(screen.getByRole('button', { name: 'Tática' }));
     await user.click(screen.getByRole('button', { name: 'Usar Copa' }));
     expect(useGameStore.getState().lineup).toEqual(saved);
     const raw = useGameStore.getState().exportGame()!;
     act(() => useGameStore.getState().importGame(raw));
     expect(useGameStore.getState().error).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Escalação' }));
+    await user.click(screen.getByRole('button', { name: 'Tática' }));
     expect(screen.getByRole('button', { name: 'Usar Copa' })).toBeEnabled();
   });
 

@@ -92,6 +92,18 @@
 .advanceButton > svg { fill: currentColor; stroke-width: 1.5; }
 .content { flex: 1; width: 100%; max-width: 1800px; margin: 0 auto; padding: 28px; min-width: 0; }
 .dashboardContent { max-width: none; background: linear-gradient(180deg, #051623a3, #061623 790px), var(--stadium-image) center top / 100% auto no-repeat, #061623; }
+@media (min-width: 961px) {
+  .appShell { --sidebar-width: 212px; --topbar-height: 70px; }
+  .sidebar > .brand { padding: 9px 19px; }
+  .sidebar .brandMark { width: 44px; height: 45px; }
+  .sidebar .brandCopy > strong { font-size: 29px; }
+  .sidebar nav { gap: 5px; }
+  .sidebar nav button { min-height: 42px; gap: 12px; }
+  .sidebar nav button svg { width: 19px; height: 19px; }
+  .topbar { padding-block: 7px; }
+  .topbarClub > .badgeLarge { width: 38px; height: 46px; }
+  .advanceButton { min-height: 44px; min-width: 126px; font-size: 14px; }
+}
 .workspaceFooter { display: flex; justify-content: space-between; gap: 18px; padding: 20px 28px; color: var(--subtle); font-size: 8px; letter-spacing: .8px; }
 .pageHeader { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
 .pageHeader > div { min-width: 0; }

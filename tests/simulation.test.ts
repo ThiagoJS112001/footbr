@@ -86,6 +86,7 @@ describe('simulação de partida', () => {
   it('mantém eventos, jogadores ativos, placar e estatísticas consistentes', () => {
     const home = fixture('home');
     const away = fixture('away');
+    let assists = 0;
     for (let seed = 0; seed < 150; seed++) {
       const result = simulateMatch(home, away, seed);
       const active = new Set([...home.lineup.starterIds, ...away.lineup.starterIds]);
@@ -107,6 +108,13 @@ describe('simulação de partida', () => {
         } else {
           expect(active.has(event.playerId)).toBe(true);
           expect(reds.has(event.playerId)).toBe(false);
+          if (event.type === 'goal' && event.assistPlayerId) {
+            expect(event.assistPlayerId).not.toBe(event.playerId);
+            expect(active.has(event.assistPlayerId)).toBe(true);
+            const teammates = event.teamId === home.id ? home.squad : away.squad;
+            expect(teammates.some((player) => player.id === event.assistPlayerId)).toBe(true);
+            assists++;
+          }
           if (event.type === 'card' && event.card === 'yellow') {
             yellows.set(event.playerId, (yellows.get(event.playerId) ?? 0) + 1);
             expect(yellows.get(event.playerId)).toBeLessThanOrEqual(2);
@@ -127,6 +135,7 @@ describe('simulação de partida', () => {
         expect(stats.corners).toBeLessThanOrEqual(stats.shots - result.score[side]);
       }
     }
+    expect(assists).toBeGreaterThan(0);
   });
 
   it('substitui lesionados, respeita limite e continua sem reserva da posição', () => {

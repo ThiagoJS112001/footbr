@@ -16,18 +16,20 @@ function start() {
 }
 
 describe('carreira integrada', () => {
-  it('Avançar prepara a escalação, inicia a partida e retorna ao painel após o resultado', async () => {
+  it('mostra a barra de avanço só na Central e permite jogar a partir da escalação', async () => {
     start();
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Avançar' }));
     expect(screen.getByRole('heading', { name: 'Escalação e tática' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Avançar' }));
+    expect(screen.queryByRole('button', { name: 'Avançar' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Jogar partida' }));
     expect(screen.getByRole('heading', { name: 'Bola rolando' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Avançar' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Avançar' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));
-    await user.click(screen.getByRole('button', { name: 'Avançar' }));
+    await user.click(within(screen.getByRole('navigation', { name: 'Navegação principal' })).getByRole('button', { name: 'Central do Clube' }));
     expect(screen.getByRole('heading', { name: 'Central do Clube' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Avançar' })).toBeEnabled();
     expect(useGameStore.getState().currentRound).toBe(2);
   });
   it('preserva titulares e reservas escolhidos e fecha a mesma rodada somente uma vez', () => {

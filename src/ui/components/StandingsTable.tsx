@@ -19,6 +19,7 @@ export function StandingsTable({ league, selectedTeamId, compact = false }: { le
       { id: 'ga', label: 'GC', align: 'center' as const, render: (row: LeagueStanding) => row.goalsAgainst },
     ] : []),
     { id: 'gd', label: 'SG', align: 'center', render: (row) => row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference },
+    ...(!compact ? [{ id: 'rate', label: '%', align: 'center' as const, render: (row: LeagueStanding) => `${row.played ? Math.round(row.points / (3 * row.played) * 100) : 0}%` }] : []),
   ];
   const rows = compact ? league.standings.filter((row) => row.position <= 5 || row.teamId === selectedTeamId) : league.standings;
   return <DataTable caption={compact ? 'Resumo da classificação' : 'Classificação completa'} rows={rows} columns={columns} getRowId={(row) => row.teamId} getRowClassName={(row) => `${row.qualified ? styles.qualifiedRow : row.relegated ? styles.relegatedRow : ''} ${row.teamId === selectedTeamId ? styles.selectedRow : ''}`} />;

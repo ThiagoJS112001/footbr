@@ -64,7 +64,10 @@ describe('decisões rápidas de carreira na interface', () => {
     await user.click(screen.getByRole('button', { name: `Aceitar proposta por ${offer.playerName}` }));
     expect(useGameStore.getState().error).toBeNull();
     expect(ownTeam(careerOf(useGameStore.getState())).squad.some((p) => p.id === offer.playerId)).toBe(false);
-    await user.click(screen.getByRole('button', { name: 'História' }));
+    const navigation = screen.getByRole('navigation', { name: 'Navegação principal' });
+    expect(navigation).not.toHaveTextContent('História');
+    expect(navigation).not.toHaveTextContent('Partida');
+    await user.click(screen.getByRole('button', { name: 'Ver movimentações do mercado' }));
     expect(screen.getByRole('table', { name: 'Histórico de transferências' })).toHaveTextContent(offer.playerName);
   });
 
@@ -134,7 +137,7 @@ describe('decisões rápidas de carreira na interface', () => {
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Preparar partida' }));
-    expect(screen.getByText(/Próximo compromisso: Copa dos Horizontes/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Copa dos Horizontes ·/).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Jogar partida' }));
     expect(useGameStore.getState().liveCompetition).toBe('cup');
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));

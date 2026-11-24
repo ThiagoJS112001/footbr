@@ -16,11 +16,14 @@ interface Props<T> {
   getRowId: (row: T) => string;
   getRowClassName?: (row: T) => string;
   initialSort?: { id: string; direction: 'asc' | 'desc' };
+  sort?: NonNullable<Props<T>['initialSort']>;
+  onSortChange?: (sort: NonNullable<Props<T>['initialSort']>) => void;
   pageSize?: number;
 }
 
-export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName, initialSort, pageSize }: Props<T>) {
-  const [sort, setSort] = useState(initialSort);
+export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName, initialSort, sort: controlledSort, onSortChange, pageSize }: Props<T>) {
+  const [localSort, setSort] = useState(initialSort);
+  const sort = controlledSort ?? localSort;
   const [page, setPage] = useState(0);
   const column = columns.find((candidate) => candidate.id === sort?.id);
   const sorted = column?.sortValue && sort ? [...rows].sort((a, b) => {
@@ -36,7 +39,12 @@ export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName
     <table className={styles.table}>
       <caption className="srOnly">{caption}</caption>
       <thead><tr>{columns.map((col) => <th key={col.id} scope="col" style={{ textAlign: col.align ?? 'left' }} aria-sort={col.sortValue ? sort?.id === col.id ? sort.direction === 'asc' ? 'ascending' : 'descending' : 'none' : undefined}>
-        {col.sortValue ? <button type="button" className={styles.sortButton} onClick={() => { setSort({ id: col.id, direction: sort?.id === col.id && sort.direction === 'asc' ? 'desc' : 'asc' }); setPage(0); }}>
+        {col.sortValue ? <button type="button" className={styles.sortButton} onClick={() => {
+          const next = { id: col.id, direction: sort?.id === col.id && sort.direction === 'asc' ? 'desc' as const : 'asc' as const };
+          if (onSortChange) onSortChange(next);
+          else setSort(next);
+          setPage(0);
+        }}>
           {col.label}<span aria-hidden="true" className={sort?.id === col.id ? styles.activeArrow : styles.arrow}>{sort?.id === col.id ? sort.direction === 'asc' ? '↑' : '↓' : '↕'}</span>
         </button> : col.label}
       </th>)}</tr></thead>
