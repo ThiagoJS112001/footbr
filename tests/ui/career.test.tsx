@@ -129,8 +129,14 @@ describe('carreira integrada', () => {
     useGameStore.getState().startCustomGame(createCareer(42));
     render(<App />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Divisão 2' }));
-    await user.click(screen.getAllByRole('button', { name: /^Assumir / })[0]);
+    await user.click(screen.getByRole('button', { name: 'Série B' }));
+    const secondDivision = useGameStore.getState().otherLeague!;
+    expect(screen.getByRole('combobox', { name: 'Liga / Competição' })).toHaveValue(secondDivision.id);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Ordenar por' }), 'reputation');
+    const topClub = [...secondDivision.teams].sort((a, b) => b.reputation - a.reputation)[0];
+    expect(screen.getAllByRole('button', { name: /^Assumir / })[0]).toHaveAccessibleName(`Assumir ${topClub.name}`);
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar clube' }), topClub.name);
+    await user.click(screen.getByRole('button', { name: `Assumir ${topClub.name}` }));
     expect(useGameStore.getState().league!.teams[0].division).toBe(2);
     await user.click(screen.getByRole('button', { name: 'Mercado' }));
     const table = screen.getByRole('table', { name: 'Jogadores no mercado' });

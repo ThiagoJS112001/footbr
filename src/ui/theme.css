@@ -36,7 +36,6 @@
   --button-hover-fill: linear-gradient(180deg, #00852f, #00752a);
   --stadium-image: url('./assets/stadium-night.webp');
   --stadium-overlay: linear-gradient(180deg, #07131f70 0, #07131fb0 200px, #07131fee 750px);
-  --menu-overlay: linear-gradient(90deg, #07131ff5 0, #07131fd9 50%, #07131f99 100%);
   --nav-fill: linear-gradient(90deg, #008f354a, #008f3524);
   --radius-sm: 6px;
   --radius: 10px;

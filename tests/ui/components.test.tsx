@@ -9,7 +9,7 @@ import type { Column } from '../../src/ui/components/DataTable';
 import { ClubSelection } from '../../src/ui/screens/ClubSelection';
 import { Squad } from '../../src/ui/screens/Squad';
 import { App } from '../../src/ui/App';
-import { initialGameData, useGameStore } from '../../src/ui/store/gameStore';
+import { initialGameData, saveKey, useGameStore } from '../../src/ui/store/gameStore';
 import { generateLeague } from '../../src/engine/generators/league';
 import { simulateSeason } from '../../src/engine/league';
 import { playCupRound } from '../../src/engine/career/cup';
@@ -80,6 +80,26 @@ describe('componentes da interface', () => {
     expect(screen.getByRole('columnheader', { name: 'Força' })).toHaveAttribute('aria-sort', 'descending');
     await user.selectOptions(screen.getByRole('combobox'), 'all');
     expect(screen.getAllByRole('row')).toHaveLength(26);
+  });
+
+  it('retoma uma carreira salva pelo menu após recarregar o jogo', async () => {
+    const store = useGameStore.getState();
+    const previous = localStorage.getItem(saveKey());
+    try {
+      const career = createCareer(2026);
+      const team = career.league.teams[0];
+      store.startCustomGame(career);
+      store.selectTeam(team.id);
+      useGameStore.setState({ ...initialGameData });
+      render(<App />);
+      expect(screen.getByRole('button', { name: `Carregar save automático de ${team.name}` })).toBeEnabled();
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Continuar jogo' }));
+      expect(screen.getByRole('heading', { name: 'Central do Clube' })).toBeInTheDocument();
+      expect(useGameStore.getState().selectedTeamId).toBe(team.id);
+    } finally {
+      if (previous === null) localStorage.removeItem(saveKey());
+      else localStorage.setItem(saveKey(), previous);
+    }
   });
 
   it('permite novo jogo, escolha, navegação e avanço de rodada pelo painel', async () => {
