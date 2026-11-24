@@ -13,6 +13,14 @@ npm run build
 
 Requer **Node.js 22.19 ou superior**. `npm run dev` inicia a interface e o backend local de importação. Sem chave, **Importação de Dados**, no menu inicial, oferece dois clubes fictícios por divisão para testar o fluxo completo. **Novo jogo** continua usando a base fictícia original.
 
+## Aplicativo para Windows
+
+Execute `FootBR-Setup.exe` e abra **FootBR** pelo menu Iniciar. A carreira fictícia funciona offline em uma janela própria. Para gerar o instalador a partir do código, execute `npm ci` e `npm run installer:windows` no Windows. O instalador x64 fica em `out/make/squirrel.windows/x64/FootBR-Setup.exe`. Para executar a edição desktop durante o desenvolvimento, use `npm run desktop`.
+
+Os saves automáticos e manuais ficam em `%APPDATA%\FootBR\saves`, e o catálogo em `%APPDATA%\FootBR\footbr.sqlite`. Para trazer uma carreira do navegador, carregue-a lá, clique em **Exportar save** e use **Importar save** no aplicativo. A importação atualiza o slot automático. Para migrar vários slots, depois de cada importação escolha o slot correspondente e clique em **Salvar**.
+
+Para importar dados reais no aplicativo, crie `%APPDATA%\FootBR\.env` com `API_FOOTBALL_KEY` e reinicie o jogo. A importação de dados reais usa internet.
+
 Para dados reais, copie [.env.example](.env.example) para `.env`, preencha `API_FOOTBALL_KEY` somente nesse arquivo e reinicie o servidor. Consulte o [guia de importação](docs/IMPORTACAO.md) para configurar temporadas, imagens e atributos. Depois de `npm run build`, `npm start` serve a interface e a API em `http://127.0.0.1:3001`.
 
 ## Mudanças, por prioridade
@@ -28,6 +36,10 @@ Para dados reais, copie [.env.example](.env.example) para `.env`, preencha `API_
 ## Como jogar
 
 Escolha a divisão e o clube. Na **Central do Clube**, ajuste titulares, formação e postura e clique em **Jogar rodada** para ver placar, gols, desfalques e posição na liga. Para acompanhar minuto a minuto, use **Acompanhar ao vivo**. Em **Preparar partida**, você também pode escolher reservas e intensidade da marcação.
+
+Na preparação, o **Relatório do adversário** usa até os cinco últimos jogos disponíveis da liga para mostrar formação, marcação inicial e finalizações por tempo. Após a partida, a análise compara as finalizações a favor e contra em intervalos de até 15 minutos de cada lado de trocas e mudanças de postura.
+
+Na Central, **J** joga uma rodada. Durante a partida ao vivo, **Espaço** pausa ou retoma, e **1**, **2** ou **5** ajustam a velocidade. **Simular até a próxima decisão** para diante de uma proposta pendente, clássico, jogo de copa, avaliação da diretoria ou fim de temporada. Use **Jogar rodada** para passar individualmente por um jogo que acionou a pausa.
 
 No elenco, clique no nome para ver atributos, estatísticas de cada temporada, títulos e contrato. Use **Comparar jogadores** antes de trocar um titular ou contratar. Renove contratos antes de começar outra temporada: atletas sem renovação ficam livres. No mercado, clique no nome para negociar e consulte as propostas recebidas.
 
@@ -71,4 +83,4 @@ As regras e os cenários de teste estão em [src/engine/career/README.md](src/en
 
 ## Evoluções opcionais
 
-Playtests mais longos podem orientar novos ajustes de dificuldade e economia. A distribuição com Tauri continua como evolução futura. A filosofia permanece: poucas decisões claras, consequências visíveis e temporadas rápidas.
+Playtests mais longos podem orientar novos ajustes de dificuldade e economia. A filosofia permanece: poucas decisões claras, consequências visíveis e temporadas rápidas.

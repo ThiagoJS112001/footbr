@@ -78,8 +78,9 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
           </> : <div className={styles.finishedMessage}>{champion ? 'Mais uma temporada entrou para a história.' : 'Seu clube folga nesta rodada.'}</div>}
           {!champion && <div className={overview.matchActions}>
             <button className={styles.secondaryButton} disabled={disabled} onClick={() => navigate('lineup')}><Icon name="calendar" size={18} /> Preparar partida</button>
-            <button className={styles.primaryButton} disabled={disabled} onClick={() => void state.advanceRound()}><Icon name="match" size={18} /> {isAdvancing ? 'Simulando…' : 'Jogar rodada'}</button>
+            <button className={styles.primaryButton} disabled={disabled} aria-keyshortcuts="J" title="Atalho J" onClick={() => void state.advanceRound()}><Icon name="match" size={18} /> {isAdvancing ? 'Simulando…' : 'Jogar rodada'}</button>
             <button className={styles.secondaryButton} disabled={disabled} onClick={state.kickOff}><Icon name="trend" size={18} /> Acompanhar ao vivo</button>
+            <button className={styles.secondaryButton} disabled={disabled} onClick={() => void state.advanceToDecision()}>Simular até a próxima decisão</button>
           </div>}
         </Panel>
         <div className={overview.squadOverview}>

@@ -13,7 +13,7 @@ import { decodeSave, encodeSave } from '../../engine/save/save';
 import type { MatchCommand, SaveData } from '../../engine/save/save';
 import { createSystems, emptySystems } from '../../engine/career/bootstrap';
 import { cupLeague, managedCup, resolveBackgroundCup } from '../../engine/career/cup';
-import { finishCareerEvent, repairLineup, seasonComplete, simulateCareerEvent, startCareerEvent } from '../../engine/career/progression';
+import { finishCareerEvent, repairLineup, seasonComplete, simulateCareerEvent, startCareerEvent, upcomingDecision } from '../../engine/career/progression';
 import type { Competition } from '../../engine/career/progression';
 import { borrowPlayer, counterOffer, refreshOffers, respondToOffer, toggleWatchPlayer } from '../../engine/career/market';
 import { loadLineupPreset, saveLineupPreset } from '../../engine/career/preparation';
@@ -22,11 +22,12 @@ import { assessProspect, promoteProspect, releaseProspect } from '../../engine/c
 import { takeJob } from '../../engine/career/board';
 import { resetUiPreferences } from './uiStore';
 import { decodeStoredSave, encodeStoredSave } from './saveStorage';
+import { readSlot, writeSlot } from './saveSlots';
 import { simulationConfig } from '../../engine/simulation/config';
 
 export type GameScreen = 'dashboard' | 'squad' | 'lineup' | 'match' | 'standings' | 'calendar' | 'market' | 'finances' | 'history' | 'cup' | 'academy' | 'board' | 'compare';
 export type Screen = 'menu' | 'club-selection' | 'data-import' | 'base-editor' | GameScreen;
-export const saveKey = (slot = 0) => `footbr.save.v1.${slot}`;
+export { saveKey } from './saveSlots';
 
 interface GameData extends Omit<Career, 'league' | 'otherLeague' | 'seed'> {
   league: League | null;
@@ -64,6 +65,7 @@ interface GameActions {
   toggleReserve: (playerId: string) => void;
   autoLineup: () => void;
   advanceRound: () => Promise<void>;
+  advanceToDecision: () => Promise<void>;
   kickOff: () => void;
   tickMatch: () => void;
   finishMatchNow: () => void;
@@ -137,9 +139,9 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
     try { return s.lineup ?? autoPickLineup(team, undefined, true); }
     catch (error) { if (error instanceof LineupUnavailableError) return null; throw error; }
   };
-  const commitCareer = (next: Career, competition: Competition, round: number) => {
+  const commitCareer = (next: Career, competition: Competition, round: number, lastLeagueRound = get().lastRound) => {
     const pending = next.league.schedule.find((r) => r.matches.some((m) => m.status !== 'finished'));
-    set({ ...next, live: null, commands: [], currentRound: pending?.round ?? next.league.schedule.length, lastRound: competition === 'league' ? round : get().lastRound,
+    set({ ...next, live: null, commands: [], currentRound: pending?.round ?? next.league.schedule.length, lastRound: competition === 'league' ? round : lastLeagueRound,
       lastCompetition: competition, lastCupRound: competition !== 'league' ? round : null, paused: true, isAdvancing: false, error: null });
     autoSave();
   };
@@ -283,6 +285,36 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         if (get().screen !== 'menu') set({ screen: 'dashboard' });
       } catch (error) { set({ isAdvancing: false }); fail(error); }
     },
+    advanceToDecision: async () => {
+      const { league, selectedTeamId, isAdvancing, live } = get();
+      if (!league || !selectedTeamId || isAdvancing || live) return;
+      let career = careerOf(get());
+      let reason = upcomingDecision(career);
+      if (reason) { set({ message: reason, error: null }); return; }
+      set({ isAdvancing: true, error: null, message: null });
+      let last: ReturnType<typeof simulateCareerEvent> | undefined;
+      let lastLeagueRound = get().lastRound;
+      let played = 0;
+      try {
+        while (!reason) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+          if (get().league !== league || !get().isAdvancing) return;
+          const lineup = last ? career.lineup : currentLineup();
+          last = simulateCareerEvent({ ...career, lineup }, lineup);
+          career = last.career;
+          played++;
+          if (last.competition === 'league') lastLeagueRound = last.round;
+          reason = upcomingDecision(career);
+        }
+      } catch (error) {
+        if (last) commitCareer(career, last.competition, last.round, lastLeagueRound);
+        set({ isAdvancing: false });
+        fail(error);
+        return;
+      }
+      if (last) commitCareer(career, last.competition, last.round, lastLeagueRound);
+      set({ message: `${played} rodada(s) simulada(s). ${reason}` });
+    },
     kickOff: () => {
       try {
         ensureIdle();
@@ -358,16 +390,15 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
     saveGame: (slot = 0) => {
       try {
         if (![0, 1, 2, 3].includes(slot)) throw new Error('Slot inválido.');
-        if (typeof localStorage === 'undefined') return;
         const raw = get().exportGame();
         if (!raw) return;
-        localStorage.setItem(saveKey(slot), encodeStoredSave(raw));
+        writeSlot(slot, encodeStoredSave(raw));
         set({ saveStatus: slot ? `Salvo no slot ${slot}` : 'Salvo automaticamente' });
       } catch { set({ saveStatus: 'Falha ao salvar', error: 'Não foi possível gravar o save. Exporte uma cópia do progresso.' }); }
     },
     loadGame: (slot = 0) => {
       try {
-        const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(saveKey(slot));
+        const raw = readSlot(slot);
         if (!raw) throw new Error('Nenhum save neste slot.');
         restore(decodeStoredSave(raw));
       } catch (error) { fail(error); }

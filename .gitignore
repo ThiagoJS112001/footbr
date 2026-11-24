@@ -1,5 +1,7 @@
 node_modules/
 dist/
+out/
+desktop/backend.cjs
 coverage/
 *.local
 .tmp/

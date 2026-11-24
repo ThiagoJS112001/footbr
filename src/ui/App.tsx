@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
 import { Layout } from './components/Layout';
 import { Menu } from './screens/Menu';
@@ -20,6 +21,23 @@ import { DataImport } from './screens/DataImport';
 
 export function App() {
   const { screen, league, selectedTeamId, currentRound } = useGameStore();
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.target instanceof Element && event.target.closest('input, textarea, select, button, a, summary, [contenteditable="true"], [role="dialog"]')) return;
+      const state = useGameStore.getState();
+      if (state.screen === 'match' && state.live) {
+        if (event.code === 'Space') state.togglePause();
+        else if (['1', '2', '5'].includes(event.key)) state.setSpeed(Number(event.key));
+        else return;
+      } else if (state.screen === 'dashboard' && !state.live && state.systems.board.status === 'active' && event.key.toLowerCase() === 'j') {
+        void state.advanceRound();
+      } else return;
+      event.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   if (screen === 'base-editor') return <BaseEditor />;
   if (screen === 'data-import') return <DataImport />;
   if (screen === 'menu' || !league) return <Menu />;

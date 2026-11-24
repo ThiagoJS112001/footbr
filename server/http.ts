@@ -15,12 +15,13 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
   return parsed as Record<string, unknown>;
 }
 const mimes: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon' };
-export function createAppServer(service: ImportService, dist = resolve('dist')) {
+export function createAppServer(service: ImportService, dist = resolve('dist'), desktopToken?: string) {
   return createServer(async (req, res) => {
     const json = (data: unknown, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     try {
+      if (desktopToken && req.headers['x-footbr-desktop'] !== desktopToken) return json({ error: 'Acesso não autorizado.' }, 403);
       const url = new URL(req.url ?? '/', 'http://localhost');
       const path = url.pathname;
       if (req.method !== 'GET' && req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) { json({ error: 'Origem não autorizada.' }, 403); return; }

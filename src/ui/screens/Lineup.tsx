@@ -12,6 +12,7 @@ import styles from '../App.module.css';
 import { presetLabels } from '../../engine/career/preparation';
 import type { LineupPreset } from '../../engine/career/preparation';
 import { PreparationChecklist } from '../components/PreparationChecklist';
+import { OpponentReport } from '../components/OpponentReport';
 import { playerTrait, traitInfo } from '../../engine/models/personality';
 
 export function LineupScreen({ team }: { team: Team }) {
@@ -32,6 +33,7 @@ export function LineupScreen({ team }: { team: Team }) {
     <PageHeader eyebrow="ANTES DO APITO" title="Escalação e tática" description="Escolha os 11 e marque quem vai para o banco. A formação deve respeitar as posições dos jogadores." />
     {cup && <p className={styles.notice}>Próximo compromisso: {cupEvent?.cup.name} · {cup.name}. Considere poupar jogadores cansados.</p>}
     <PreparationChecklist team={team} lineup={lineup} career={careerOf(state)} />
+    <OpponentReport career={careerOf(state)} />
     <div className={styles.presetBar} aria-label="Escalações salvas">{(Object.keys(presetLabels) as LineupPreset[]).map((name) => <div className={styles.presetSlot} key={name}><strong>{presetLabels[name]}</strong><button className={styles.secondaryButton} disabled={!systems.savedLineups.some((p) => p.name === name && p.teamId === team.id)} onClick={() => state.loadPreset(name)}>Usar {presetLabels[name]}</button><button className={styles.textButton} disabled={!lineup} onClick={() => state.savePreset(name)}>Salvar {presetLabels[name]}</button></div>)}</div>
     <section className={styles.panel}>
       <div className={styles.controls}>

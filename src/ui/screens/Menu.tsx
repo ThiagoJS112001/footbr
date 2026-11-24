@@ -5,14 +5,15 @@ import { Brand } from '../components/Brand';
 import { Icon } from '../components/Icon';
 import { SaveControls } from '../components/SaveControls';
 import { TacticalPitch } from '../components/TacticalPitch';
-import { saveKey, useGameStore } from '../store/gameStore';
+import { useGameStore } from '../store/gameStore';
+import { readSlot } from '../store/saveSlots';
 import { decodeStoredSave } from '../store/saveStorage';
 import styles from './Menu.module.css';
 
 function readSavedCareers() {
   return [0, 1, 2, 3].flatMap((slot) => {
     try {
-      const raw = localStorage.getItem(saveKey(slot));
+      const raw = readSlot(slot);
       if (!raw) return [];
       const { career } = decodeSave(decodeStoredSave(raw));
       const team = career.league.teams.find(({ id }) => id === career.selectedTeamId);

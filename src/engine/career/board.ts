@@ -11,9 +11,14 @@ export function createBoard(team: Team | undefined, league: League, round = 0): 
   const adjustment = !team ? 0 : clubProfile(team) === 'traditional' ? -2 : clubProfile(team) === 'community' ? -1 : 1;
   return { teamId: team?.id ?? null, targetPosition: Math.max(4, Math.min(16, rank + 3 + adjustment)), confidence: 65, status: 'active', lastReviewRound: round, appointedRound: round, startingPoints: league.standings.find((r) => r.teamId === team?.id)?.points ?? 0, reviews: [] };
 }
+export function boardReviewDue(career: Career, round: number): boolean {
+  const board = career.systems.board;
+  return !!career.selectedTeamId && board.status === 'active' && round > board.lastReviewRound && round % 4 === 0 && round - board.appointedRound >= 8;
+}
+
 export function evaluateBoard(career: Career, round: number): Career {
   const board = career.systems.board;
-  if (!career.selectedTeamId || board.status === 'dismissed' || round <= board.lastReviewRound || round % 4 || round - board.appointedRound < 8) return career;
+  if (!boardReviewDue(career, round)) return career;
   const row = career.league.standings.find((r) => r.teamId === career.selectedTeamId)!;
   const team = ownTeam(career);
   const targetPpg = 2.25 - (board.targetPosition - 1) / 19 * 1.1;

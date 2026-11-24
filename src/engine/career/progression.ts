@@ -6,11 +6,11 @@ import { finishMatch } from '../simulation/simulateMatch';
 import type { Career } from './career';
 import { seasonSeed, settleRound } from './career';
 import { allCups, competitionTeams, dueCupRound, finishCupRound, managedCup, resolveBackgroundCup, startCupRound } from './cup';
-import { evaluateBoard } from './board';
+import { boardReviewDue, evaluateBoard } from './board';
 import { processAiMarket } from './market';
 import { arrangeDivisions, completedRounds, ownTeam, worldLeagues } from './world';
 import { matchInsights } from './insights';
-import { recordMatchStories } from './stories';
+import { recordMatchStories, rivalryBetween } from './stories';
 
 export const cupKinds = ['state', 'cup', 'continental', 'continental-secondary'] as const;
 export type Competition = 'league' | typeof cupKinds[number];
@@ -23,6 +23,26 @@ export function nextCupEvent(career: Career) {
 }
 export const nextCompetition = (career: Career): Competition => nextCupEvent(career)?.kind ?? 'league';
 export const seasonComplete = (career: Career) => completedRounds(career) === career.league.schedule.length && allCups(career).every((cup) => cup.status === 'deferred' || !!cup.championId);
+
+export function nextManagedMatch(career: Career) {
+  const cup = nextCupEvent(career);
+  const round = cup?.round ?? career.league.schedule.find((stage) => stage.matches.some((match) => match.status !== 'finished'));
+  const teamId = career.selectedTeamId;
+  const match = round?.matches.find((item) => item.status !== 'finished' && (item.homeTeamId === teamId || item.awayTeamId === teamId));
+  const opponentId = match && (match.homeTeamId === teamId ? match.awayTeamId : match.homeTeamId);
+  return { cup, round, opponentId };
+}
+
+export function upcomingDecision(career: Career): string | null {
+  if (career.systems.board.status === 'dismissed') return 'Escolha um novo clube na Diretoria.';
+  if (seasonComplete(career)) return 'Temporada concluída.';
+  if (career.systems.offers.some((offer) => offer.status === 'pending')) return 'Confira as propostas pendentes no Mercado.';
+  const { cup, round, opponentId } = nextManagedMatch(career);
+  if (opponentId && rivalryBetween(career, career.selectedTeamId!, opponentId)) return 'Clássico à frente. Prepare a escalação.';
+  if (cup) return `Próximo compromisso pela ${cup.cup.name}. Prepare a escalação.`;
+  if (round && boardReviewDue(career, round.round)) return `A Diretoria avalia seu trabalho após a rodada ${round.round}.`;
+  return null;
+}
 export function repairLineup(career: Career, preferred?: Lineup | null): Career {
   try {
     const lineup = autoPickLineup(ownTeam(career), preferred ?? undefined, !preferred);

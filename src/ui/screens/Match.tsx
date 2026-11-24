@@ -63,6 +63,7 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
       <div className={styles.controls}>
         {live ? <><button className={styles.primaryButton} onClick={togglePause}>{paused ? 'Retomar' : 'Pausar'}</button><label className={styles.filterLabel}>Velocidade<select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}><option value={1}>1×</option><option value={2}>2×</option><option value={5}>5×</option></select></label><button className={styles.secondaryButton} onClick={finishMatchNow}>Simular até o fim</button></> : <><button className={styles.primaryButton} disabled={seasonComplete(careerOf(state)) || systems.board.status === 'dismissed'} onClick={() => navigate('lineup')}>Preparar próximo jogo</button><button className={styles.secondaryButton} onClick={() => navigate('dashboard')}>Próxima rodada</button></>}
       </div>
+      {live && <p className={styles.tableNote}>Atalhos: Espaço pausa ou retoma. 1, 2 e 5 mudam a velocidade.</p>}
       {match.statistics && <div className={styles.matchStats}>{(['possession', 'shots', 'shotsOnTarget', 'xG'] as const).map((key, i) => <div key={key}><strong>{match.statistics!.home[key]}{key === 'possession' ? '%' : ''}</strong><span>{['Posse', 'Finalizações', 'No alvo', 'xG'][i]}</span><strong>{match.statistics!.away[key]}{key === 'possession' ? '%' : ''}</strong></div>)}</div>}
     </section>
     {live && side && <section className={styles.panel}>
