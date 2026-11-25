@@ -16,16 +16,14 @@ function start() {
 }
 
 describe('carreira integrada', () => {
-  it('prepara a escalação e inicia a partida pela Central do Clube', async () => {
+  it('abre a escalação pela Central do Clube e inicia a partida pela escalação', async () => {
     start();
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Avançar' }));
     expect(screen.getByRole('heading', { name: 'Escalação e tática' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Avançar' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Jogar partida' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Central do Clube' }));
-    await user.click(screen.getByRole('button', { name: 'Acompanhar ao vivo' }));
+    await user.click(screen.getByRole('button', { name: 'Jogar partida' }));
     expect(screen.getByRole('heading', { name: 'Bola rolando' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Avançar' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));

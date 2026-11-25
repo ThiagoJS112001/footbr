@@ -2,7 +2,7 @@ import { useState, type DragEvent, type HTMLAttributes } from 'react';
 import type { Player, Team, Tactic } from '../../engine/models';
 import { autoPickLineup, formationSlots, formations } from '../../engine/league';
 import { maxReserves } from '../../engine/league/lineup';
-import { nextCupEvent } from '../../engine/career/progression';
+import { nextCupEvent, seasonComplete } from '../../engine/career/progression';
 import { worldTeams } from '../../engine/career/world';
 import { presetLabels, type LineupPreset } from '../../engine/career/preparation';
 import { careerOf, useGameStore } from '../store/gameStore';
@@ -26,10 +26,11 @@ const comparePlayers = (a: Player, b: Player) =>
 
 export function LineupScreen({ team }: { team: Team }) {
   const state = useGameStore();
-  const { lineup: saved, updateTactic, pickPlayer, toggleReserve, autoLineup, league, systems } = state;
+  const { lineup: saved, updateTactic, pickPlayer, toggleReserve, autoLineup, kickOff, league, systems } = state;
   const [tab, setTab] = useState('Escalação');
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const career = careerOf(state);
+  const complete = seasonComplete(career);
   const cup = nextCupEvent(career);
   const pending = league?.schedule.find((round) => round.matches.some((match) => match.status !== 'finished'));
   const fixture = (cup?.round.matches ?? pending?.matches)?.find((match) => match.status !== 'finished' && (match.homeTeamId === team.id || match.awayTeamId === team.id));
@@ -133,7 +134,12 @@ export function LineupScreen({ team }: { team: Team }) {
         <span className={styles.muted}>Condição média<strong>{average('fitness')}%</strong></span>
         <span className={styles.muted}>Moral<strong>{average('morale')}%</strong></span>
       </div>
-      <button className={styles.secondaryButton} onClick={autoLineup}>Escalar automaticamente</button>
+      <div className={views.lineupActions}>
+        <button className={styles.secondaryButton} onClick={autoLineup}>Escalar automaticamente</button>
+        <button className={styles.primaryButton} disabled={complete || !!state.live || state.isAdvancing || systems.board.status === 'dismissed'} onClick={kickOff}>
+          <Icon name="match" size={17} />{complete ? 'Temporada concluída' : lineup ? 'Jogar partida' : 'Acompanhar rodada com W.O.'}
+        </button>
+      </div>
     </div>
     {tab === 'Escalação' && <div className={`${views.split} ${views.lineup}`}>
       <Panel title="Configuração tática" icon="lineup" className={`${views.surface} ${views.pitchPanel}`}>
