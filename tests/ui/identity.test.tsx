@@ -35,15 +35,16 @@ describe('ritmo e identidade na interface', () => {
     useGameStore.getState().kickOff();
     expect(useGameStore.getState().live!.games.every((g) => g.config.personality !== false)).toBe(true);
   });
-  it('joga direto da central, mostra a projeção e prepara o jogo seguinte pelo resultado', async () => {
+  it('joga direto da central, pausa para ajustes e prepara o jogo seguinte pelo resultado', async () => {
     const state = useGameStore.getState();
     const expected = autoPickLineup(ownTeam(careerOf(state)), undefined, true);
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Acompanhar ao vivo' }));
-    await user.click(screen.getByRole('button', { name: 'Pausar' }));
+    await user.click(screen.getByRole('button', { name: 'Pausar partida' }));
     expect(useGameStore.getState().lineup).toEqual(expected);
-    expect(screen.getByRole('region', { name: 'Classificação provisória' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Se terminasse agora' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Comandos táticos rápidos' })).toBeInTheDocument();
     expect(useGameStore.getState().league!.schedule[0].matches.every((m) => m.status === 'scheduled')).toBe(true);
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));
     await user.click(screen.getByRole('button', { name: 'Preparar próximo jogo' }));

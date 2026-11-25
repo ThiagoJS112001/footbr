@@ -15,6 +15,7 @@ const navigation: { screen: GameScreen; label: string }[] = [
   { screen: 'dashboard', label: 'Central do Clube' }, { screen: 'squad', label: 'Elenco' },
   { screen: 'lineup', label: 'Escalação' },
   { screen: 'standings', label: 'Classificação' }, { screen: 'calendar', label: 'Calendário' },
+  { screen: 'match', label: 'Partida' },
   { screen: 'academy', label: 'Categorias de Base' },
   { screen: 'market', label: 'Mercado' }, { screen: 'finances', label: 'Finanças' },
   { screen: 'board', label: 'Diretoria' },
@@ -37,7 +38,7 @@ export function Layout({ league, team, children }: { league: League; team: Team;
     <aside className={styles.sidebar}>
       <Brand />
       <p className={styles.navCaption}>SEU CLUBE. SUA HISTÓRIA.</p>
-      <nav aria-label="Navegação principal">{navigation.map((item) => <button key={item.screen} title={item.label} disabled={!!live} onClick={() => navigate(item.screen)} className={screen === item.screen ? styles.activeNav : ''} aria-current={screen === item.screen ? 'page' : undefined}><Icon name={item.screen} />{item.label}{screen === item.screen && <span className={styles.navIndicator} />}</button>)}</nav>
+      <nav aria-label="Navegação principal">{navigation.filter((item) => item.screen !== 'match' || screen === 'match').map((item) => <button key={item.screen} title={item.label} disabled={!!live} onClick={() => navigate(item.screen)} className={screen === item.screen ? styles.activeNav : ''} aria-current={screen === item.screen ? 'page' : undefined}><Icon name={item.screen} />{item.label}{screen === item.screen && <span className={styles.navIndicator} />}</button>)}</nav>
       <div className={styles.sidebarBottom}><div className={styles.seasonMarker}><span className={styles.liveDot} /><span>TEMPORADA {padRound(season)}</span></div><button onClick={() => navigate('menu')} className={styles.textButton}><Icon name="exit" />Menu e saves</button></div>
     </aside>
     <div className={styles.workspace}>

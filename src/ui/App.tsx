@@ -27,7 +27,7 @@ export function App() {
       const state = useGameStore.getState();
       if (state.screen === 'match' && state.live) {
         if (event.code === 'Space') state.togglePause();
-        else if (['1', '2', '5'].includes(event.key)) state.setSpeed(Number(event.key));
+        else if (['1', '2', '4', '8'].includes(event.key)) state.setSpeed(Number(event.key));
         else return;
       } else if (state.screen === 'dashboard' && !state.live && state.systems.board.status === 'active' && event.key.toLowerCase() === 'j') {
         void state.advanceRound();

@@ -111,20 +111,28 @@ describe('carreira integrada', () => {
   it('permite pausar, substituir e mudar postura na tela da partida', async () => {
     start();
     useGameStore.getState().kickOff();
-    useGameStore.getState().togglePause();
     render(<App />);
     const user = userEvent.setup();
+    expect(screen.getByRole('heading', { name: 'Bola rolando' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Sai' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Pausar partida' }));
+    expect(screen.getByRole('heading', { name: 'Partida pausada' })).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Banco de reservas' })).toBeInTheDocument();
     const outgoing = screen.getByRole('combobox', { name: 'Sai' });
     await user.selectOptions(outgoing, within(outgoing).getAllByRole('option')[1].getAttribute('value')!);
     const incoming = screen.getByRole('combobox', { name: 'Entra' });
     await user.selectOptions(incoming, within(incoming).getAllByRole('option')[1].getAttribute('value')!);
-    await user.click(screen.getByRole('button', { name: 'Substituir' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar substituição' }));
     expect(useGameStore.getState().commands).toHaveLength(1);
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Postura em campo' }), 'defensive');
+    await user.click(screen.getByRole('button', { name: 'Defensiva' }));
     expect(useGameStore.getState().commands.at(-1)).toMatchObject({ type: 'style', style: 'defensive', minute: 0 });
-    expect(screen.getByRole('button', { name: 'Retomar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retomar partida' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mercado' })).toBeDisabled();
     expect(decodeStoredSave(localStorage.getItem(saveKey())!)).toContain('substitution');
+    await user.click(screen.getByRole('button', { name: '4×' }));
+    expect(useGameStore.getState().speed).toBe(4);
+    await user.click(screen.getByRole('button', { name: 'Retomar partida' }));
+    expect(screen.getByRole('heading', { name: 'Bola rolando' })).toBeInTheDocument();
   });
 
   it('permite assumir um clube da segunda divisão e comprar com proposta pela interface', async () => {

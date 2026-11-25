@@ -350,7 +350,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       } catch (error) { fail(error); }
     },
     togglePause: () => set({ paused: !get().paused }),
-    setSpeed: (speed) => { if ([1, 2, 5].includes(speed)) set({ speed }); },
+    setSpeed: (speed) => { if ([1, 2, 4, 8].includes(speed)) set({ speed }); },
     changeStyle: (style) => {
       try {
         const { live, selectedTeamId } = get();

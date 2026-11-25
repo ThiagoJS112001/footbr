@@ -1,84 +1,214 @@
-import { useEffect, useState } from 'react';
-import type { League, MatchEvent, Team } from '../../engine/models';
+import { useEffect, useRef, useState } from 'react';
+import type { League, MatchEvent, MatchStatistics, Team } from '../../engine/models';
 import type { PlayingStyle } from '../../engine/models/Tactic';
+import { playerTrait, traitInfo } from '../../engine/models/personality';
 import { matchSnapshot } from '../../engine/simulation/simulateMatch';
 import { careerOf, useGameStore } from '../store/gameStore';
 import { competitionTeams, managedCup } from '../../engine/career/cup';
+import { seasonComplete } from '../../engine/career/progression';
 import { RoundReview } from '../components/RoundReview';
 import { PageHeader } from '../components/PageHeader';
 import { ClubBadge } from '../components/ClubBadge';
-import { positionLabels } from '../utils';
+import { DataTable } from '../components/DataTable';
+import { Panel } from '../components/Panel';
+import { Icon } from '../components/Icon';
+import { Level } from '../components/ClubMetrics';
+import { TacticalPitch } from '../components/TacticalPitch';
+import { formationLabel, positionLabels } from '../utils';
 import styles from '../App.module.css';
-import { calculateStandings } from '../../engine/league';
-import { seasonSeed } from '../../engine/career/career';
-import { seasonComplete } from '../../engine/career/progression';
-import { StandingsTable } from '../components/StandingsTable';
-import { playerTrait, traitInfo } from '../../engine/models/personality';
+import css from './Match.module.css';
+
+const speeds = [1, 2, 4, 8];
+const postures = [
+  { id: 'defensive', label: 'Defensiva', icon: 'shield' },
+  { id: 'balanced', label: 'Equilibrada', icon: 'target' },
+  { id: 'attacking', label: 'Ofensiva', icon: 'trend' },
+] as const satisfies readonly { id: PlayingStyle; label: string; icon: 'shield' | 'target' | 'trend' }[];
+
+function MatchStats({ stats }: { stats: MatchStatistics }) {
+  return <section className={`${styles.panel} ${css.stats}`} aria-label="Estatísticas da partida">
+    <div className={css.possession}>
+      <span>Posse de bola</span>
+      <div><strong>{stats.home.possession}%</strong>
+        <meter min={0} max={100} value={stats.home.possession} aria-label="Posse do mandante" />
+        <strong>{stats.away.possession}%</strong>
+      </div>
+    </div>
+    {([
+      { key: 'shots', label: 'Finalizações', icon: 'target' },
+      { key: 'shotsOnTarget', label: 'No alvo', icon: 'lineup' },
+      { key: 'xG', label: 'xG', icon: 'trend' },
+    ] as const).map(({ key, label, icon }) => <div key={key} className={css.stat}>
+      <Icon name={icon} size={25} /><div><span>{label}</span>
+        <strong>{key === 'xG' ? stats.home.xG.toFixed(2) : stats.home[key]} – {key === 'xG' ? stats.away.xG.toFixed(2) : stats.away[key]}</strong>
+      </div>
+    </div>)}
+  </section>;
+}
 
 export function MatchScreen({ league, team }: { league: League; team: Team }) {
   const state = useGameStore();
   const { live, lastRound, lastCupRound, lastCompetition, liveCompetition, systems, paused, speed, tickMatch, togglePause, setSpeed, changeStyle, substitute, finishMatchNow, navigate } = state;
   const career = careerOf(state);
-  const teams = competitionTeams(career);
+  const teams = new Map(competitionTeams(career).map((club) => [club.id, club]));
   const competition = live ? liveCompetition : lastCompetition;
   const cup = competition === 'league' ? undefined : managedCup(career, competition);
   const [outId, setOutId] = useState('');
   const [inId, setInId] = useState('');
   const [onlyHighlights, setOnlyHighlights] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const outgoingSelect = useRef<HTMLSelectElement>(null);
+  const running = !!live && !paused;
   useEffect(() => {
-    if (!live || paused) return;
+    if (!running) return;
     const timer = window.setInterval(tickMatch, 700 / speed);
     return () => window.clearInterval(timer);
-  }, [!!live, paused, speed, tickMatch]);
-  const matches = live ? [...live.games.map(matchSnapshot), ...live.forfeits] : cup ? cup.rounds.find((r) => r.round === lastCupRound)?.matches ?? [] : league.schedule.find((r) => r.round === lastRound)?.matches ?? [];
+  }, [running, speed, tickMatch]);
+
+  const round = live?.round ?? (cup ? lastCupRound : lastRound);
+  const matches = live ? [...live.games.map(matchSnapshot), ...live.forfeits] : (cup?.rounds ?? league.schedule).find((r) => r.round === round)?.matches ?? [];
   const match = matches.find((m) => m.homeTeamId === team.id || m.awayTeamId === team.id);
   const session = live?.games.find((g) => g.home.team.id === team.id || g.away.team.id === team.id);
-  const side = session?.home.team.id === team.id ? session.home : session?.away;
-  const playerNames = new Map(teams.flatMap((t) => t.squad.map((p) => [p.id, p.name] as const)));
+  const isHome = match?.homeTeamId === team.id;
+  const side = isHome ? session?.home : session?.away;
+  if (!match) return <><PageHeader eyebrow="DIA DE JOGO" title="Partida" description="Prepare a escalação para acompanhar a próxima rodada." /><button className={styles.primaryButton} onClick={() => navigate('lineup')}>Preparar partida</button></>;
+
+  const home = teams.get(match.homeTeamId)!;
+  const away = teams.get(match.awayTeamId)!;
+  const stats = match.statistics;
+  const minute = session?.minute ?? live?.games[0]?.minute ?? 90;
+  const inTechnicalView = !!live && paused;
+  const walkover = !!match.forfeitTeamIds?.length;
+  const clock = live && !walkover ? `${minute}′ · ${paused ? 'Pausado' : minute <= 45 ? '1º tempo' : '2º tempo'}` : walkover ? 'Encerrado · W.O.' : '90′ · Encerrado';
+  const playerNames = new Map([...teams.values()].flatMap((club) => club.squad.map((p) => [p.id, p.name] as const)));
   const name = (id: string) => playerNames.get(id) ?? 'Jogador transferido';
-  const describe = (event: MatchEvent) => event.type === 'goal' ? `GOL! ${event.playerName ?? name(event.playerId)}`
+  const describe = (event: MatchEvent) => event.type === 'goal' ? `Gol de ${event.playerName ?? name(event.playerId)}!`
     : event.type === 'card' ? `${event.card === 'red' ? 'Cartão vermelho' : 'Cartão amarelo'} · ${name(event.playerId)}`
       : event.type === 'injury' ? `Lesão · ${name(event.playerId)}` : `Sai ${name(event.playerOutId)}, entra ${name(event.playerInId)}`;
-  const minute = live?.games[0]?.minute ?? 90;
-  const projectedLeague = live && competition === 'league' ? { ...league, schedule: league.schedule.map((r) => r.round === live.round ? { ...r, matches: matches.map((m) => ({ ...m, status: 'finished' as const })) } : r) } : null;
-  if (projectedLeague) projectedLeague.standings = calculateStandings(projectedLeague, seasonSeed(careerOf(state)));
-  const projectedRow = projectedLeague?.standings.find((r) => r.teamId === team.id);
-  const projectionNote = projectedRow && projectedLeague ? `${projectedRow.position}º lugar · ${projectedRow.points} pontos · ${projectedLeague.rules.promotionSpots > 0 && (projectedLeague.rules.relegationSpots === 0 || projectedRow.position <= 10) ? projectedRow.position <= 4 ? 'Na zona de acesso' : `${Math.max(0, projectedLeague.standings[3].points - projectedRow.points)} ponto(s) atrás do G4` : projectedRow.position >= 17 ? 'Na zona de rebaixamento' : `${Math.max(0, projectedRow.points - projectedLeague.standings[16].points)} ponto(s) acima do Z4`}` : '';
-  if (!match) return <><PageHeader eyebrow="DIA DE JOGO" title="Partida" description="Prepare a escalação para acompanhar a próxima rodada." /><button className={styles.primaryButton} onClick={() => navigate('lineup')}>Preparar partida</button></>;
-  const home = teams.find((t) => t.id === match.homeTeamId)!;
-  const away = teams.find((t) => t.id === match.awayTeamId)!;
-  const timeline = [...match.events.map((event, index) => ({ key: `event-${index}`, minute: event.minute, teamId: event.teamId, text: describe(event), highlight: true })),
-    ...(onlyHighlights ? [] : (match.commentary ?? []).map((event, index) => ({ key: `commentary-${index}`, minute: event.minute, teamId: event.teamId, text: event.text, highlight: false })))].sort((a, b) => b.minute - a.minute);
-  const compatibleBench = side?.bench.filter((p) => {
-    const outgoing = side.active.find((q) => q.id === outId);
-    return outgoing && (p.primaryPosition === outgoing.primaryPosition || p.secondaryPosition === outgoing.primaryPosition);
-  }) ?? [];
-  return <>
-    <PageHeader eyebrow={cup ? `${cup.name} · ${cup.rounds.find((r) => r.round === (live?.round ?? lastCupRound))?.name}` : `RODADA ${live?.round ?? lastRound}`} title={live ? 'Bola rolando' : 'Apito final'} description={live ? 'Suas decisões passam a valer no próximo minuto.' : 'Resultados confirmados. Finanças e condição física atualizadas.'} />
+  const timeline = [
+    ...match.events.map((event, index) => ({ key: `event-${index}`, minute: event.minute, text: describe(event), detail: teams.get(event.teamId)?.name, kind: event.type === 'card' ? event.card : event.type })),
+    ...(onlyHighlights ? [] : (match.commentary ?? []).map((event, index) => ({ key: `commentary-${index}`, minute: event.minute, text: event.text, detail: teams.get(event.teamId)?.name, kind: event.kind }))),
+    ...(!onlyHighlights && !walkover ? [{ key: 'kickoff', minute: 0, text: 'Bola rolando!', detail: `${home.name} × ${away.name}`, kind: 'kickoff' }] : []),
+  ].sort((a, b) => b.minute - a.minute);
+
+  const outgoing = side?.active.find((p) => p.id === outId);
+  const compatibleBench = outgoing ? side?.bench.filter((p) => p.primaryPosition === outgoing.primaryPosition || p.secondaryPosition === outgoing.primaryPosition) ?? [] : [];
+  const formation = side?.team.lineup.tactic.formation;
+  const slotIds = [...((isHome ? session?.initialHomeLineup : session?.initialAwayLineup)?.starterIds ?? [])];
+  for (const event of match.events) {
+    if (event.type !== 'substitution' || event.teamId !== team.id) continue;
+    const index = slotIds.indexOf(event.playerOutId);
+    if (index >= 0) slotIds[index] = event.playerInId;
+  }
+  const playersOnPitch = slotIds.map((id) => side?.active.find((p) => p.id === id));
+  const otherMatches = matches.filter((m) => m.id !== match.id);
+
+  return <div className={`${css.screen} ${inTechnicalView ? css.paused : ''}`}>
+    <PageHeader eyebrow={cup ? `${cup.name} · ${cup.rounds.find((r) => r.round === round)?.name ?? ''}` : league.name}
+      title={live ? paused ? 'Partida pausada' : 'Bola rolando' : 'Apito final'}
+      description={live ? paused ? 'Ajuste a postura e faça substituições antes de retomar o jogo.' : 'Acompanhe a partida em tempo real e tome decisões quando necessário.' : 'Resultados confirmados. Finanças e condição física atualizadas.'} />
     {!live && <RoundReview />}
-    <section className={styles.panel}>
-      <div className={styles.matchClock} aria-live="off">{live ? `${minute}′ · ${paused ? 'Pausado' : 'Em jogo'}` : match.forfeitTeamIds?.length ? 'Encerrado · W.O.' : '90′ · Encerrado'}</div>
-      <div className={styles.scoreboard}><div><ClubBadge name={home.name} image={home.identity?.facts.image} size="large" /><strong>{home.name}</strong></div><strong aria-label="Placar da partida">{match.score?.home ?? 0} – {match.score?.away ?? 0}</strong><div><ClubBadge name={away.name} image={away.identity?.facts.image} size="large" /><strong>{away.name}</strong></div></div>
-      {match.penalties && <p className={styles.matchMeta}>Pênaltis: {match.penalties.home}–{match.penalties.away} · Classificado: {teams.find((t) => t.id === match.winnerTeamId)?.name}</p>}
-      <div className={styles.controls}>
-        {live ? <><button className={styles.primaryButton} onClick={togglePause}>{paused ? 'Retomar' : 'Pausar'}</button><label className={styles.filterLabel}>Velocidade<select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}><option value={1}>1×</option><option value={2}>2×</option><option value={5}>5×</option></select></label><button className={styles.secondaryButton} onClick={finishMatchNow}>Simular até o fim</button></> : <><button className={styles.primaryButton} disabled={seasonComplete(careerOf(state)) || systems.board.status === 'dismissed'} onClick={() => navigate('lineup')}>Preparar próximo jogo</button><button className={styles.secondaryButton} onClick={() => navigate('dashboard')}>Próxima rodada</button></>}
+    <section className={`${styles.panel} ${css.scoreboard}`} aria-label="Placar">
+      <div className={css.home}><ClubBadge name={home.name} image={home.identity?.facts.image} size="large" /><span><strong>{home.name}</strong>{isHome && <small>Você</small>}</span></div>
+      <div className={css.score}><span className={styles.pill}>{clock}</span>
+        <strong aria-label="Placar da partida">{match.score?.home ?? 0} – {match.score?.away ?? 0}</strong>
+        {match.penalties && <small>Pênaltis {match.penalties.home}–{match.penalties.away} · Classificado: {teams.get(match.winnerTeamId ?? '')?.name}</small>}
       </div>
-      {live && <p className={styles.tableNote}>Atalhos: Espaço pausa ou retoma. 1, 2 e 5 mudam a velocidade.</p>}
-      {match.statistics && <div className={styles.matchStats}>{(['possession', 'shots', 'shotsOnTarget', 'xG'] as const).map((key, i) => <div key={key}><strong>{match.statistics!.home[key]}{key === 'possession' ? '%' : ''}</strong><span>{['Posse', 'Finalizações', 'No alvo', 'xG'][i]}</span><strong>{match.statistics!.away[key]}{key === 'possession' ? '%' : ''}</strong></div>)}</div>}
+      <div className={css.away}><ClubBadge name={away.name} image={away.identity?.facts.image} size="large" /><span><strong>{away.name}</strong>{!isHome && <small>Você</small>}</span></div>
     </section>
-    {live && side && <section className={styles.panel}>
-      <div className={styles.panelHeading}><h2>Comando técnico</h2><span className={styles.subtleTag}>{side.substitutions}/5 SUBSTITUIÇÕES</span></div>
-      <div className={styles.controls}>
-        <label className={styles.filterLabel}>Postura em campo<select value={side.team.lineup.tactic.style} onChange={(e) => changeStyle(e.target.value as PlayingStyle)}><option value="defensive">Defensiva</option><option value="balanced">Equilibrada</option><option value="attacking">Ofensiva</option></select></label>
-        <label className={styles.filterLabel}>Sai<select value={outId} onFocus={() => { if (!paused) togglePause(); }} onChange={(e) => { setOutId(e.target.value); setInId(''); }}><option value="">Escolher titular</option>{side.active.map((p) => <option key={p.id} value={p.id}>{positionLabels[p.primaryPosition]} · {p.name} · {Math.round(p.fitness)}%{side.yellows[p.id] ? ' · AMARELADO' : ''}</option>)}</select></label>
-        <label className={styles.filterLabel}>Entra<select value={inId} onChange={(e) => setInId(e.target.value)}><option value="">Escolher reserva</option>{compatibleBench.map((p) => <option key={p.id} value={p.id}>{p.name} · F {p.overall} · {Math.round(p.fitness)}% · {traitInfo[playerTrait(p)].label}</option>)}</select></label>
-        <button className={styles.secondaryButton} disabled={!outId || !inId || side.substitutions >= 5} onClick={() => { substitute(outId, inId); setOutId(''); setInId(''); }}>Substituir</button>
+    {stats && <MatchStats stats={stats} />}
+
+    {inTechnicalView && session && side && formation && <div className={css.technical}>
+      <div className={css.technicalGrid}>
+        <Panel title={`Escalação em campo · ${team.name}`} icon="shirt" action={<span className={styles.pill}>{formationLabel(formation)}</span>} className={css.pitch}>
+          <TacticalPitch variant="match" formation={formation} players={playersOnPitch} />
+        </Panel>
+        <Panel title="Banco de reservas" icon="squad" className={css.bench}>
+          <DataTable caption="Banco de reservas" rows={side.bench} getRowId={(p) => p.id} columns={[
+            { id: 'name', label: 'Jogador', render: (p) => p.name },
+            { id: 'position', label: 'Pos.', render: (p) => positionLabels[p.primaryPosition] },
+            { id: 'overall', label: 'Força', render: (p) => <strong className={styles.accent}>{p.overall}</strong> },
+            { id: 'fitness', label: 'Condição', render: (p) => <Level value={p.fitness} /> },
+          ]} />
+        </Panel>
+        <Panel title="Comandos táticos rápidos" icon="target">
+          <div className={css.commands}>
+            <div className={css.postures} role="group" aria-label="Postura em campo">
+              {postures.map(({ id, label, icon }) => <button key={id} className={styles.secondaryButton} aria-pressed={side.team.lineup.tactic.style === id} onClick={() => changeStyle(id)}><Icon name={icon} size={21} />{label}</button>)}
+            </div>
+            <button className={styles.secondaryButton} onClick={() => outgoingSelect.current?.focus()}><Icon name="market" size={17} />Trocar jogador</button>
+            {stats && <button className={styles.secondaryButton} aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}><Icon name="trend" size={17} />{showDetails ? 'Ocultar estatísticas completas' : 'Ver estatísticas completas'}</button>}
+          </div>
+        </Panel>
       </div>
-    </section>}
-    <div className={styles.managerGrid}>
-      <section className={styles.panel}><div className={styles.panelHeading}><h2>Lances da partida</h2><label className={styles.highlightFilter}><input type="checkbox" checked={onlyHighlights} onChange={(e) => setOnlyHighlights(e.target.checked)} />Só gols, cartões e trocas</label></div><ol className={`${styles.compactList} ${styles.matchTimeline}`}>{timeline.map((event) => <li key={event.key} className={event.highlight ? styles.highlightEvent : undefined}><strong className={styles.accent}>{event.minute}′</strong><span>{event.text}<small>{teams.find((t) => t.id === event.teamId)?.name}</small></span></li>)}{!timeline.length && <li className={styles.muted}>Aguardando o primeiro lance.</li>}</ol></section>
-      <section className={styles.panel}><div className={styles.panelHeading}><h2>Placar da rodada</h2></div><ul className={styles.compactList}>{matches.map((m) => <li key={m.id}><span>{teams.find((t) => t.id === m.homeTeamId)?.name}<small>{teams.find((t) => t.id === m.awayTeamId)?.name}</small></span><strong className={styles.nowrap}>{m.score?.home ?? 0} – {m.score?.away ?? 0}{m.penalties && <small>Pên. {m.penalties.home}–{m.penalties.away}</small>}{m.forfeitTeamIds?.length ? ' W.O.' : ''}</strong></li>)}</ul></section>
+      {showDetails && stats && <Panel title="Estatísticas completas" icon="trend">
+        <DataTable caption="Estatísticas completas" rows={[
+          { label: 'Posse de bola', home: `${stats.home.possession}%`, away: `${stats.away.possession}%` },
+          { label: 'Finalizações', home: stats.home.shots, away: stats.away.shots },
+          { label: 'No alvo', home: stats.home.shotsOnTarget, away: stats.away.shotsOnTarget },
+          { label: 'Escanteios', home: stats.home.corners, away: stats.away.corners },
+          { label: 'Gols esperados (xG)', home: stats.home.xG.toFixed(2), away: stats.away.xG.toFixed(2) },
+        ]} getRowId={(row) => row.label} columns={[
+          { id: 'metric', label: 'Estatística', render: (row) => row.label },
+          { id: 'home', label: home.name, render: (row) => row.home },
+          { id: 'away', label: away.name, render: (row) => row.away },
+        ]} />
+      </Panel>}
+      <form className={`${styles.panel} ${css.substitution}`} onSubmit={(event) => {
+        event.preventDefault();
+        if (!outgoing || !compatibleBench.some((p) => p.id === inId)) return;
+        substitute(outId, inId);
+        setOutId('');
+        setInId('');
+      }}>
+        <div><h2><Icon name="market" size={21} />Substituição</h2><small>{side.substitutions}/{session.config.maxSubstitutions} usadas</small></div>
+        <label className={styles.filterLabel}>Sai<select ref={outgoingSelect} value={outgoing?.id ?? ''} onChange={(e) => { setOutId(e.target.value); setInId(''); }}>
+          <option value="">Escolher titular</option>{side.active.map((p) => <option key={p.id} value={p.id}>{positionLabels[p.primaryPosition]} · {p.name} · {Math.round(p.fitness)}%{side.yellows[p.id] ? ' · AMARELADO' : ''}</option>)}
+        </select></label>
+        <label className={styles.filterLabel}>Entra<select value={inId} disabled={!outgoing} onChange={(e) => setInId(e.target.value)}>
+          <option value="">Escolher reserva</option>{compatibleBench.map((p) => <option key={p.id} value={p.id}>{p.name} · F {p.overall} · {Math.round(p.fitness)}% · {traitInfo[playerTrait(p)].label}</option>)}
+        </select></label>
+        <button className={styles.primaryButton} disabled={!outgoing || !inId || side.substitutions >= session.config.maxSubstitutions}><Icon name="check" size={18} />Confirmar substituição</button>
+      </form>
+    </div>}
+
+    <div className={css.feeds}>
+      <Panel title="Lances da partida" icon="news" action={<label className={styles.highlightFilter}><input type="checkbox" checked={onlyHighlights} onChange={(e) => setOnlyHighlights(e.target.checked)} />Só lances principais</label>}>
+        <ol className={css.timeline}>
+          {inTechnicalView && <li><strong>{minute}′</strong><Icon name="clock" size={19} /><span><strong>Partida pausada</strong><small>Ajustes táticos em andamento.</small></span></li>}
+          {timeline.map((event) => <li key={event.key} className={event.kind === 'yellow' ? css.yellow : event.kind === 'red' ? css.red : ''}>
+            <strong>{event.minute}′</strong><Icon name={event.kind === 'goal' ? 'match' : event.kind === 'substitution' ? 'market' : event.kind === 'yellow' || event.kind === 'red' ? 'news' : 'target'} size={19} />
+            <span><strong>{event.text}</strong>{event.detail && <small>{event.detail}</small>}</span>
+          </li>)}
+          {!timeline.length && !inTechnicalView && <li><span>Aguardando o primeiro lance.</span></li>}
+        </ol>
+      </Panel>
+      <Panel title={live && !paused ? `${cup ? cup.rounds.find((r) => r.round === round)?.name ?? cup.name : `Rodada ${round}`} · Outros jogos` : 'Placar da rodada'} icon="cup">
+        {otherMatches.length ? <ul className={css.otherGames}>{otherMatches.map((m) => {
+          const home = teams.get(m.homeTeamId);
+          const away = teams.get(m.awayTeamId);
+          return <li key={m.id}>
+            <span className={css.otherHome}>{home?.name}{home && <ClubBadge name={home.name} image={home.identity?.facts.image} />}</span>
+            <span className={css.otherScore}><strong>{m.score?.home ?? 0} – {m.score?.away ?? 0}</strong>
+              <small>{m.forfeitTeamIds?.length ? 'W.O.' : m.penalties ? `Pên. ${m.penalties.home}–${m.penalties.away}` : m.status === 'finished' ? 'Encerrado' : `${minute}′`}</small>
+            </span>
+            <span className={css.otherAway}>{away && <ClubBadge name={away.name} image={away.identity?.facts.image} />}{away?.name}</span>
+          </li>;
+        })}</ul> : <p className={styles.tableNote}>Nenhum outro jogo nesta rodada.</p>}
+      </Panel>
     </div>
-    {projectedLeague && <section className={styles.panel} aria-label="Classificação provisória"><div className={styles.panelHeading}><h2>Se terminasse agora</h2><span className={styles.subtleTag}>TABELA AO VIVO · {minute}′</span></div><p className={styles.tableNote}><strong>{projectionNote}</strong><br />Projeção com os placares atuais. A classificação oficial será confirmada ao final da rodada.</p><StandingsTable league={projectedLeague} selectedTeamId={team.id} compact /></section>}
-  </>;
+    <div className={`${styles.panel} ${css.toolbar}`}>
+      {live ? <>
+        <button className={styles.primaryButton} onClick={togglePause} aria-keyshortcuts="Space"><Icon name={paused ? 'match' : 'clock'} size={18} />{paused ? 'Retomar partida' : 'Pausar partida'}</button>
+        {!paused && side && <button className={styles.secondaryButton} onClick={togglePause}><Icon name="target" size={18} />Comando técnico</button>}
+        <div className={css.speed} role="group" aria-label="Velocidade da partida"><span>Velocidade da partida</span>
+          <div>{speeds.map((value) => <button key={value} type="button" className={speed === value ? styles.primaryButton : styles.secondaryButton} aria-pressed={speed === value} aria-keyshortcuts={String(value)} onClick={() => setSpeed(value)}>{value}×</button>)}</div>
+        </div>
+        <button className={styles.secondaryButton} onClick={finishMatchNow}><Icon name="next" size={18} />Simular até o fim</button>
+      </> : <>
+        <button className={styles.primaryButton} disabled={seasonComplete(career) || systems.board.status === 'dismissed'} onClick={() => navigate('lineup')}>Preparar próximo jogo</button>
+        <button className={styles.secondaryButton} onClick={() => navigate('dashboard')}>Próxima rodada</button>
+      </>}
+    </div>
+  </div>;
 }

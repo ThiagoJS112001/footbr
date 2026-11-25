@@ -7,7 +7,7 @@ import styles from '../App.module.css';
 export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'standard', getSlotProps }: {
   formation?: string;
   players?: (Player | undefined)[];
-  variant?: 'standard' | 'overview' | 'lineup';
+  variant?: 'standard' | 'overview' | 'lineup' | 'match';
   getSlotProps?: (index: number) => HTMLAttributes<HTMLDivElement>;
 }) {
   const patternId = useId();
@@ -21,6 +21,25 @@ export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'st
       position,
       scale: row.length > 4 ? .8 : 1,
     })))];
+  if (variant === 'match') return <svg viewBox="0 0 360 224" className={styles.tacticalPitch} role="img" aria-label={label}>
+    <defs><linearGradient id={patternId} x2="0" y2="1"><stop stopColor="#154e2d" /><stop offset="1" stopColor="#082b23" /></linearGradient></defs>
+    <path d="M32 5H328L355 219H5Z" fill={`url(#${patternId})`} stroke="#60a37d" strokeWidth="1.5" />
+    <path d="M18 112H342M95 5L90 50H270L265 5M135 5V23H225V5M85 219L91 174H269L275 219M133 219V200H227V219" fill="none" stroke="#60a37d" />
+    <ellipse cx="180" cy="112" rx="37" ry="21" fill="none" stroke="#60a37d" />
+    {locations.map(({ x, y, position }, index) => {
+      const player = players[index];
+      if (!player) return null;
+      const parts = player.name.split(' ');
+      const name = parts.length > 1 ? `${parts[0][0]}. ${parts.at(-1)}` : parts[0];
+      return <g key={index} transform={`translate(${180 + (x - 180) * (.84 + y / 3000)}, ${index === 0 ? 196 : 9 + y * .45})`}>
+        <title>{player.name}</title>
+        <path d="M-5-10L-12-6L-14 1L-7 4V11H7V4L14 1L12-6L5-10Q0-5-5-10Z" fill={index ? '#174c86' : '#008f3a'} stroke="#d6e5f3" />
+        <text y="4" textAnchor="middle" fill="white" fontSize="6.5" fontWeight="750">{positionLabels[position]}</text>
+        <rect x="-26" y="11" width="52" height="12" rx="4" fill="#071c22" />
+        <text y="20" textAnchor="middle" fill="white" fontSize="6.7" fontWeight="650">{name.length > 14 ? `${name.slice(0, 13)}…` : name}</text>
+      </g>;
+    })}
+  </svg>;
   if (variant === 'overview') return <svg viewBox="0 0 360 208" className={styles.tacticalPitch} role="img" aria-label={label}>
     <defs><linearGradient id={patternId} x2="0" y2="1"><stop stopColor="#0b402b" /><stop offset="1" stopColor="#05291f" /></linearGradient></defs>
     <path d="M58 6H302L354 202H6Z" fill={`url(#${patternId})`} stroke="#21eb57" strokeWidth="1.5" />
