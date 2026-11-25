@@ -1,7 +1,7 @@
 import { arrangeDivisions, worldLeagues, worldTeams } from '../../engine/career/world';
 import { create } from 'zustand';
 import { autoPickLineup, LineupUnavailableError } from '../../engine/league';
-import { formationSlots, validateLineup } from '../../engine/league/lineup';
+import { formationSlots, maxReserves, validateLineup } from '../../engine/league/lineup';
 import { startRound, stepRound } from '../../engine/league/season';
 import type { RoundSession } from '../../engine/league/season';
 import { changeMatchStyle, finishMatch, substitutePlayer } from '../../engine/simulation/simulateMatch';
@@ -62,7 +62,7 @@ interface GameActions {
   navigate: (screen: GameScreen | 'menu' | 'data-import' | 'base-editor') => void;
   updateTactic: (patch: Partial<Tactic>) => void;
   pickPlayer: (slot: number, playerId: string) => void;
-  toggleReserve: (playerId: string) => void;
+  toggleReserve: (playerId: string, replacedId?: string) => void;
   autoLineup: () => void;
   advanceRound: () => Promise<void>;
   advanceToDecision: () => Promise<void>;
@@ -107,7 +107,7 @@ function replay(data: SaveData): RoundSession | null {
   const competition = data.progress.competition ?? 'league';
   const cup = competition === 'league' ? undefined : managedCup(c, competition);
   const legacyEngine = data.progress.engineVersion === 1 || data.progress.engineVersion === undefined && worldTeams(c).every((t) => t.squad.every((p) => p.trait === undefined));
-  let live = startRound(cup ? cupLeague(c, cup) : c.league, cup ? (seasonSeed(c) ^ 0xc0ffee) >>> 0 : seasonSeed(c), { ...data.progress.lineups, ...(c.lineup ? { [c.selectedTeamId!]: c.lineup } : {}) }, legacyEngine ? { ...simulationConfig, personality: false } : simulationConfig);
+  let live = startRound(cup ? cupLeague(c, cup) : c.league, cup ? (seasonSeed(c) ^ 0xc0ffee) >>> 0 : seasonSeed(c), { ...(c.lineup ? { [c.selectedTeamId!]: c.lineup } : {}), ...data.progress.lineups }, legacyEngine ? { ...simulationConfig, personality: false } : simulationConfig);
   for (const command of data.progress.commands) {
     while ((live.games[0]?.minute ?? 90) < command.minute) live = stepRound(live);
     live = applyCommand(live, c.selectedTeamId!, command);
@@ -154,7 +154,7 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       next = repairLineup(next, next.lineup ?? before.lineup);
       if (next.lineup) {
         const newcomers = next.league.teams.find((t) => t.id === next.selectedTeamId)!.squad.filter((p) => !previousIds.has(p.id) && !p.injury && !p.discipline.suspendedMatches && !next.lineup!.starterIds.includes(p.id));
-        next.lineup = { ...next.lineup, substituteIds: [...new Set([...next.lineup.substituteIds, ...newcomers.map((p) => p.id)])] };
+        next.lineup = { ...next.lineup, substituteIds: [...new Set([...next.lineup.substituteIds, ...newcomers.map((p) => p.id)])].slice(0, maxReserves) };
       }
       set({ ...next, error: null, message }); autoSave();
     }
@@ -240,12 +240,12 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         ensureIdle();
         const lineup = structuredClone(currentLineup());
         if (!lineup) throw new Error('Não há jogadores suficientes para esta formação.');
-        const previousEligible = new Set([...lineup.starterIds, ...lineup.substituteIds]);
         const team = get().league!.teams.find((t) => t.id === get().selectedTeamId)!;
         const slots = formationSlots(lineup.tactic.formation);
         const player = team.squad.find((p) => p.id === playerId);
         if (!player || !slots[slot] || player.injury || player.discipline.suspendedMatches || (player.primaryPosition !== slots[slot] && player.secondaryPosition !== slots[slot])) throw new Error('Jogador indisponível para essa posição.');
         const previous = lineup.starterIds.indexOf(playerId);
+        const displacedId = lineup.starterIds[slot];
         if (previous !== -1 && previous !== slot) {
           const displaced = team.squad.find((p) => p.id === lineup.starterIds[slot])!;
           if (displaced.primaryPosition !== slots[previous] && displaced.secondaryPosition !== slots[previous]) throw new Error('Esse jogador já é titular em outra posição.');
@@ -253,12 +253,12 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         }
         lineup.starterIds[slot] = playerId;
         lineup.positions = Object.fromEntries(lineup.starterIds.map((id, i) => [id, slots[i]]));
-        lineup.substituteIds = team.squad.filter((p) => previousEligible.has(p.id) && !lineup.starterIds.includes(p.id) && !p.injury && !p.discipline.suspendedMatches).map((p) => p.id);
+        lineup.substituteIds = lineup.substituteIds.map((id) => id === playerId ? displacedId : id);
         validateLineup(team, lineup);
         set({ lineup, error: null }); autoSave();
       } catch (error) { fail(error); }
     },
-    toggleReserve: (playerId) => {
+    toggleReserve: (playerId, replacedId) => {
       try {
         ensureIdle();
         const lineup = structuredClone(currentLineup());
@@ -266,7 +266,14 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         const team = get().league!.teams.find((t) => t.id === get().selectedTeamId)!;
         const player = team.squad.find((p) => p.id === playerId);
         if (!player || player.injury || player.discipline.suspendedMatches || lineup.starterIds.includes(playerId)) throw new Error('Jogador indisponível para o banco.');
-        lineup.substituteIds = lineup.substituteIds.includes(playerId) ? lineup.substituteIds.filter((id) => id !== playerId) : [...lineup.substituteIds, playerId];
+        if (replacedId) {
+          if (!lineup.substituteIds.includes(replacedId) || lineup.substituteIds.includes(playerId)) throw new Error('Escolha um reserva para a troca.');
+          lineup.substituteIds = lineup.substituteIds.map((id) => id === replacedId ? playerId : id);
+        } else {
+          const alreadyOnBench = lineup.substituteIds.includes(playerId);
+          if (!alreadyOnBench && lineup.substituteIds.length >= maxReserves) throw new Error('O banco está cheio. Troque com um dos reservas.');
+          lineup.substituteIds = alreadyOnBench ? lineup.substituteIds.filter((id) => id !== playerId) : [...lineup.substituteIds, playerId];
+        }
         validateLineup(team, lineup);
         set({ lineup, error: null }); autoSave();
       } catch (error) { fail(error); }

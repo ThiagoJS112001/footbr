@@ -14,7 +14,6 @@ import { Finances } from './screens/Finances';
 import { History } from './screens/History';
 import { AcademyScreen } from './screens/Academy';
 import { BoardScreen } from './screens/Board';
-import { CupScreen } from './screens/Cup';
 import { CompareScreen } from './screens/Compare';
 import { BaseEditor } from './screens/BaseEditor';
 import { DataImport } from './screens/DataImport';
@@ -53,9 +52,8 @@ export function App() {
     {screen === 'history' && <History />}
     {screen === 'academy' && <AcademyScreen />}
     {screen === 'board' && <BoardScreen />}
-    {screen === 'cup' && <CupScreen />}
     {screen === 'compare' && <CompareScreen />}
     {screen === 'standings' && <Standings league={league} selectedTeamId={team.id} />}
-    {screen === 'calendar' && <Calendar league={league} selectedTeamId={team.id} currentRound={currentRound} />}
+    {(screen === 'calendar' || screen === 'cup') && <Calendar league={league} selectedTeamId={team.id} currentRound={currentRound} />}
   </Layout>;
 }

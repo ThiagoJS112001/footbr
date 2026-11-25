@@ -4,7 +4,7 @@ import { worldLeagues, worldTeams } from '../career/world';
 import type { Career } from '../career/career';
 import type { PlayingStyle } from '../models/Tactic';
 import { calculateStandings, generateSchedule } from '../league';
-import { autoPickLineup, LineupUnavailableError, validateLineup } from '../league/lineup';
+import { autoPickLineup, formations, LineupUnavailableError, maxReserves, selectReserves, validateLineup } from '../league/lineup';
 import type { Lineup } from '../models';
 import type { Competition } from '../career/progression';
 import { createSystems } from '../career/bootstrap';
@@ -36,7 +36,7 @@ const list = (check: Check, max = 5000): Check => (v) => Array.isArray(v) && v.l
 const oneOf = (...values: unknown[]): Check => (v) => values.includes(v);
 const shape = (fields: Record<string, Check>): Check => (v) => object(v) && Object.entries(fields).every(([key, check]) => check(v[key]));
 const position = oneOf('GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'LW', 'RW', 'ST');
-const tactic = shape({ formation: oneOf('4-4-2', '4-3-3', '4-2-3-1', '3-5-2', '5-3-2'), style: oneOf('defensive', 'balanced', 'attacking'), markingIntensity: oneOf('low', 'medium', 'high') });
+const tactic = shape({ formation: oneOf(...formations), style: oneOf('defensive', 'balanced', 'attacking'), markingIntensity: oneOf('low', 'medium', 'high') });
 const lineup = shape({ starterIds: list(text, 11), substituteIds: list(text, 35), tactic,
   positions: (v) => v === undefined || object(v) && Object.entries(v).every(([id, p]) => text(id) && position(p)) });
 const attributes = shape(Object.fromEntries(['attack', 'midfield', 'defense', 'goalkeeping', 'speed', 'passing', 'finishing', 'stamina'].map((key) => [key, range(1, 99)])));
@@ -152,7 +152,15 @@ export function decodeSave(raw: string): SaveData {
     if (data.progress) {
       const lineups: Record<string, Lineup> = {};
       for (const team of c.league.teams) {
-        try { lineups[team.id] = team.id === c.selectedTeamId && c.lineup ? c.lineup : autoPickLineup(team, undefined, false, data.progress.engineVersion === 2 || players.some((p) => p.trait !== undefined)); }
+        try {
+          if (team.id === c.selectedTeamId && c.lineup) {
+            lineups[team.id] = c.lineup;
+          } else {
+            const lineup = autoPickLineup(team, undefined, false, data.progress.engineVersion === 2 || players.some((p) => p.trait !== undefined));
+            lineup.substituteIds = team.squad.filter((p) => !lineup.starterIds.includes(p.id) && !p.injury && !p.discipline.suspendedMatches).map((p) => p.id).sort();
+            lineups[team.id] = lineup;
+          }
+        }
         catch (error) { if (!(error instanceof LineupUnavailableError)) throw error; }
       }
       data.progress = { ...data.progress, competition: 'league', lineups };
@@ -172,6 +180,17 @@ export function decodeSave(raw: string): SaveData {
     if (!team) throw new Error('Escalação de clube inexistente no save.');
     validateLineup(team, savedLineup);
   }
+  if (c.lineup && c.lineup.substituteIds.length > maxReserves) {
+    const team = allTeams.find((t) => t.id === c.selectedTeamId)!;
+    const oldLineup = c.lineup;
+    if (data.progress) data.progress.lineups = { [team.id]: oldLineup, ...data.progress.lineups };
+    c.lineup = { ...oldLineup, substituteIds: selectReserves(team.squad.filter((p) => oldLineup.substituteIds.includes(p.id) && !oldLineup.starterIds.includes(p.id))) };
+  }
+  c.systems.savedLineups = c.systems.savedLineups.map((preset) => {
+    if (preset.lineup.substituteIds.length <= maxReserves) return preset;
+    const team = allTeams.find((t) => t.id === preset.teamId)!;
+    return { ...preset, lineup: { ...preset.lineup, substituteIds: selectReserves(team.squad.filter((p) => preset.lineup.substituteIds.includes(p.id))) } };
+  });
   return data;
 }
 

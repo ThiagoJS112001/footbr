@@ -1,5 +1,5 @@
 import type { Lineup } from '../models/Match.ts';
-import type { PlayerPosition } from '../models/Player.ts';
+import type { Player, PlayerPosition } from '../models/Player.ts';
 import type { Team } from '../models/Team.ts';
 import { calculateOverall } from '../generators/player.ts';
 import { leagueConfig } from './config.ts';
@@ -7,7 +7,14 @@ import { playerTrait } from '../models/personality.ts';
 
 export class LineupUnavailableError extends Error {}
 
-export function formationSlots(formation: string): PlayerPosition[] {
+const specializedRows: Record<string, readonly (readonly PlayerPosition[])[]> = {
+  '3-4-3': [['CB', 'CB', 'CB'], ['LB', 'DM', 'CM', 'RB'], ['LW', 'ST', 'RW']],
+  '4-1-2-1-2': [['LB', 'CB', 'CB', 'RB'], ['DM'], ['CM', 'CM'], ['AM'], ['ST', 'ST']],
+  '4-3-2-1': [['LB', 'CB', 'CB', 'RB'], ['DM', 'CM', 'CM'], ['AM', 'AM'], ['ST']],
+};
+
+export function formationRows(formation: string): readonly (readonly PlayerPosition[])[] {
+  if (Object.hasOwn(specializedRows, formation)) return specializedRows[formation];
   const lines = formation.split('-').map(Number);
   if ((lines.length !== 3 && lines.length !== 4) || lines.some((count) => !Number.isInteger(count) || count < 1)
     || lines.reduce((sum, count) => sum + count, 0) !== 10) throw new Error('Formação inválida.');
@@ -23,10 +30,29 @@ export function formationSlots(formation: string): PlayerPosition[] {
   const attack: Record<number, PlayerPosition[]> = { 1: ['ST'], 2: ['ST', 'ST'], 3: ['LW', 'ST', 'RW'], 4: ['LW', 'ST', 'ST', 'RW'] };
   const blocks = [defense[lines[0]], midfield[lines[1]], ...(lines.length === 4 ? [advanced[lines[2]]] : []), attack[lines[lines.length - 1]]];
   if (blocks.some((block) => !block)) throw new Error('Formação não suportada.');
-  return ['GK', ...blocks.flat()];
+  return blocks;
 }
 
-export const formations = ['4-4-2', '4-3-3', '4-2-3-1', '3-5-2', '5-3-2'] as const;
+export function formationSlots(formation: string): PlayerPosition[] {
+  return ['GK', ...formationRows(formation).flat()];
+}
+
+export const formations = [
+  '3-4-3', '3-5-2', '4-1-4-1', '4-2-3-1', '4-3-2-1', '4-3-3', '4-4-2', '4-1-2-1-2', '4-5-1', '5-3-2',
+] as const;
+
+export const maxReserves = 10;
+
+export function selectReserves(players: readonly Player[]): string[] {
+  const ranked = players.filter((player) => !player.injury && !player.discipline.suspendedMatches)
+    .sort((a, b) => b.overall - a.overall || a.id.localeCompare(b.id));
+  const bestByPosition = new Map<PlayerPosition, Player>();
+  for (const player of ranked) {
+    if (!bestByPosition.has(player.primaryPosition)) bestByPosition.set(player.primaryPosition, player);
+  }
+  const firstPicks = new Set(bestByPosition.values());
+  return [...firstPicks, ...ranked.filter((player) => !firstPicks.has(player))].slice(0, maxReserves).map((player) => player.id);
+}
 
 /** Valida também a distribuição por posição, antes de permitir entrar em campo. */
 export function validateLineup(team: Team, lineup: Lineup): void {
@@ -106,7 +132,7 @@ export function autoPickLineup(team: Team, preferred?: Lineup, considerFitness =
   const starterIds = chosen.map((column) => players[column].id);
   return {
     starterIds,
-    substituteIds: players.filter((player) => !starterIds.includes(player.id)).map((player) => player.id),
+    substituteIds: selectReserves(players.filter((player) => !starterIds.includes(player.id))),
     positions: Object.fromEntries(starterIds.map((id, index) => [id, slots[index]])),
     tactic: { ...team.defaultTactic },
   };

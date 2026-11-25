@@ -31,7 +31,6 @@ const columns: Column<Player>[] = [
 
 export function Squad({ team }: { team: Team }) {
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<{ id: string; direction: 'asc' | 'desc' }>({ id: 'overall', direction: 'desc' });
   const { squadPosition: position, squadSelected: playerId } = useUiStore();
   const setPosition = (value: PlayerPosition | 'all') => useUiStore.setState({ squadPosition: value });
   const setPlayerId = (value: string | null) => useUiStore.setState({ squadSelected: value });
@@ -45,7 +44,18 @@ export function Squad({ team }: { team: Team }) {
   const loan = selected && career ? activeLoan(career, selected.id) : null;
   const moments = selected && career ? career.systems.milestones.filter((m) => m.playerId === selected.id).slice(-10).reverse() : [];
   const history = selected && career ? [...career.systems.playerHistory.filter((r) => r.playerId === selected.id), ...current] : [];
-  const interactiveColumns = columns.map((column) => column.id === 'name' ? { ...column, render: (player: Player) => <button className={`${styles.playerButton} ${styles.importedPlayerName}`} onClick={() => setPlayerId(player.id)}><PlayerAvatar player={player} />{column.render(player)}</button> } : column);
+  const interactiveColumns = columns.map((column) => {
+    if (column.id === 'name') return { ...column, render: (player: Player) => <button className={`${styles.playerButton} ${styles.importedPlayerName}`} onClick={() => setPlayerId(player.id)}><PlayerAvatar player={player} />{column.render(player)}</button> };
+    if (column.id === 'position') return {
+      ...column,
+      headerControl: <select className={views.positionFilter} aria-label="Filtrar por posição" value={position}
+        onChange={(event) => setPosition(event.target.value as PlayerPosition | 'all')}>
+        <option value="all">Todas</option>
+        {(Object.keys(positionLabels) as PlayerPosition[]).map((key) => <option value={key} key={key}>{positionLabels[key]} · {positionNames[key]}</option>)}
+      </select>,
+    };
+    return column;
+  });
   const players = team.squad.filter((player) => (position === 'all' || player.primaryPosition === position) &&
     player.name.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR')));
   const average = (key: 'age' | 'overall') => Math.round(team.squad.reduce((sum, p) => sum + p[key], 0) / (team.squad.length || 1));
@@ -61,14 +71,10 @@ export function Squad({ team }: { team: Team }) {
     <div className={`${views.split} ${views.squad}`}>
     <section className={`${styles.panel} ${views.surface}`}><div className={styles.tableToolbar}><h2><Icon name="shirt" className={views.headingIcon} />Todos os jogadores</h2></div>
       <div className={views.toolbar}>
-        <button className={styles.primaryButton} onClick={() => navigate('lineup')}>Definir titulares e tática</button>
-        <button className={styles.secondaryButton} onClick={() => navigate('compare')}>Comparar jogadores</button>
-        <button className={styles.secondaryButton} onClick={() => navigate('market')}>Mercado / transferências</button>
-        <label className={styles.filterLabel}>Filtrar por posição<select value={position} onChange={(event) => setPosition(event.target.value as PlayerPosition | 'all')}><option value="all">Todas as posições</option>{(Object.keys(positionLabels) as PlayerPosition[]).map((key) => <option value={key} key={key}>{positionLabels[key]} · {positionNames[key]}</option>)}</select></label>
-        <label className={styles.filterLabel}>Ordenar por<select value={sort.id} onChange={(event) => setSort({ id: event.target.value, direction: ['name', 'position'].includes(event.target.value) ? 'asc' : 'desc' })}>{columns.filter((column) => column.sortValue).map((column) => <option value={column.id} key={column.id}>{column.label}</option>)}</select></label>
+        <button className={styles.secondaryButton} onClick={() => navigate('compare')}><Icon name="compare" size={17} />Comparar jogadores</button>
         <input type="search" aria-label="Buscar jogador" placeholder="Buscar jogador…" value={query} onChange={(event) => setQuery(event.target.value)} />
       </div>
-      <div className={`${views.tableArea} ${views.dense}`}><DataTable caption="Elenco do clube" rows={players} columns={interactiveColumns} getRowId={(player) => player.id} getRowClassName={(p) => lineup?.starterIds.includes(p.id) ? styles.selectedRow : ''} sort={sort} onSortChange={setSort} /></div>
+      <div className={`${views.tableArea} ${views.dense}`}><DataTable caption="Elenco do clube" rows={players} columns={interactiveColumns} getRowId={(player) => player.id} getRowClassName={(p) => lineup?.starterIds.includes(p.id) ? styles.selectedRow : ''} initialSort={{ id: 'overall', direction: 'desc' }} /></div>
       <div className={styles.tableNote}>{players.length} de {team.squad.length} jogadores · Salários em reais por mês.</div>
     </section>
     <aside className={`${styles.panel} ${views.surface} ${views.summary}`}>

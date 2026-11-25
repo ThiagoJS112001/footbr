@@ -16,11 +16,6 @@
 .matchTimeline { max-height: 430px; overflow-y: auto; scroll-behavior: smooth; }
 .highlightEvent > span { font-weight: 600; }
 .keyInsights { margin: 10px 22px 18px; padding-left: 18px; color: var(--text); font-size: 12px; line-height: 1.9; }
-.compactList li.offerRow { align-items: flex-start; flex-wrap: wrap; gap: 16px; padding-block: 18px; }
-.offerRow > span { flex: 1 1 230px; }
-.offerActions { display: grid; gap: 12px; flex: 1 1 380px; }
-.offerActions .inlineActions { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
-.offerActions input { max-width: 220px; }
 .dealSummary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 18px 22px; border-block: 1px solid var(--line-soft); }
 .dealSummary > div { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 .dealSummary span { font-size: 10px; color: var(--muted); line-height: 1.6; }

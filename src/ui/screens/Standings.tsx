@@ -31,11 +31,18 @@ export function Standings({ league: own, selectedTeamId }: { league: League; sel
     <PageHeader eyebrow="A DISPUTA PELO TÍTULO" title="Classificação" description="Acompanhe a tabela, a artilharia e o desempenho da liga.">
       <div className={views.filters}>
         <span className={styles.pill}><Icon name="cup" size={16} />{league.name}</span>
-        <label className={styles.filterLabel}>Divisão<select value={league.id} onChange={(event) => setDivisionId(event.target.value)}>{divisions.map((item) => <option key={item.id} value={item.id}>Divisão {item.teams[0].division}</option>)}</select></label>
+        <label className={views.divisionPicker}>
+          <span className={views.divisionPickerLabel}>Divisão</span>
+          <span className={views.divisionPickerControl}>
+            <select value={league.id} onChange={(event) => setDivisionId(event.target.value)}>
+              {divisions.map((item) => <option key={item.id} value={item.id}>Divisão {item.teams[0].division}</option>)}
+            </select>
+            <Icon name="chevron" size={16} />
+          </span>
+        </label>
         <span className={styles.pill}>Temporada {padRound(season)}</span>
       </div>
     </PageHeader>
-    <div className={views.tabs}>{divisions.map((item) => <button key={item.id} aria-pressed={league.id === item.id} className={league.id === item.id ? styles.primaryButton : styles.secondaryButton} onClick={() => setDivisionId(item.id)}><Icon name="cup" size={16} />Divisão {item.teams[0].division}</button>)}</div>
     <ClubMetrics items={[
       { label: 'Rodada', value: `${round} de ${league.schedule.length}`, icon: 'lineup' },
       { label: 'Jogos disputados', value: finished.length, icon: 'calendar' },

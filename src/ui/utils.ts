@@ -1,5 +1,7 @@
 import type { Team, Match, PlayerPosition } from '../engine/models';
 
+export const formationLabel = (formation: string) => formation === '4-1-2-1-2' ? '4-4-2 Losango' : formation;
+
 export const positionLabels: Record<PlayerPosition, string> = {
   GK: 'GOL', CB: 'ZAG', LB: 'LE', RB: 'LD', DM: 'VOL', CM: 'MC', AM: 'MEI', LW: 'PE', RW: 'PD', ST: 'ATA',
 };

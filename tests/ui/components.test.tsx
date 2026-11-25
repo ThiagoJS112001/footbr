@@ -2,7 +2,7 @@ import { createCareer } from '../../src/engine/career/career';
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DataTable } from '../../src/ui/components/DataTable';
 import type { Column } from '../../src/ui/components/DataTable';
@@ -16,9 +16,19 @@ import { playCupRound } from '../../src/engine/career/cup';
 import { careerOf } from '../../src/ui/store/gameStore';
 import { nextCompetition, repairLineup } from '../../src/engine/career/progression';
 import { ownTeam, replaceTeams } from '../../src/engine/career/world';
+import { decodeSave } from '../../src/engine/save/save';
 
 afterEach(cleanup);
 beforeEach(() => useGameStore.setState({ ...initialGameData }));
+
+function dragPlayer(source: Element, target: Element) {
+  const data = new Map<string, string>();
+  const dataTransfer = { getData: (key: string) => data.get(key), setData: (key: string, value: string) => data.set(key, value) };
+  fireEvent.dragStart(source, { dataTransfer });
+  fireEvent.dragOver(target, { dataTransfer });
+  fireEvent.drop(target, { dataTransfer });
+  fireEvent.dragEnd(source, { dataTransfer });
+}
 
 describe('componentes da interface', () => {
   it('pagina depois de ordenar todos os registros e volta à primeira página ao mudar a ordem', async () => {
@@ -74,14 +84,17 @@ describe('componentes da interface', () => {
     render(<Squad team={team} />);
     expect(screen.getAllByRole('row')).toHaveLength(26);
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por posição' }), 'GK');
+    const positionHeader = screen.getByRole('button', { name: 'Posição' }).closest('th')!;
+    await user.selectOptions(within(positionHeader).getByRole('combobox', { name: 'Filtrar por posição' }), 'GK');
     expect(screen.getAllByRole('row')).toHaveLength(4);
     for (const row of screen.getAllByRole('row').slice(1)) expect(row).toHaveTextContent('GOL');
     expect(screen.getByRole('columnheader', { name: 'Força' })).toHaveAttribute('aria-sort', 'descending');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por posição' }), 'all');
     expect(screen.getAllByRole('row')).toHaveLength(26);
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Ordenar por' }), 'age');
-    expect(screen.getByRole('columnheader', { name: 'Idade' })).toHaveAttribute('aria-sort', 'descending');
+    await user.click(screen.getByRole('button', { name: 'Força' }));
+    expect(screen.getByRole('columnheader', { name: 'Força' })).toHaveAttribute('aria-sort', 'ascending');
+    await user.click(screen.getByRole('button', { name: 'Idade' }));
+    expect(screen.getByRole('columnheader', { name: 'Idade' })).toHaveAttribute('aria-sort', 'ascending');
   });
 
   it('retoma uma carreira salva pelo menu após recarregar o jogo', async () => {
@@ -116,9 +129,15 @@ describe('componentes da interface', () => {
     expect(screen.getAllByText(teamName).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Preparar partida' }));
     expect(screen.getByRole('heading', { name: 'Escalação e tática' })).toBeInTheDocument();
-    expect(screen.getAllByRole('combobox', { name: /^Titular / })).toHaveLength(11);
+    expect(screen.getByRole('img', { name: /Campo tático/ }).querySelectorAll('[draggable="true"]')).toHaveLength(11);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Formação' }), '4-1-2-1-2');
+    const diamond = screen.getByRole('img', { name: 'Campo tático na formação 4-4-2 Losango' });
+    expect(diamond.querySelectorAll('[draggable="true"]')).toHaveLength(11);
+    expect(diamond.querySelectorAll('[role="meter"]')).toHaveLength(11);
+    expect(decodeSave(useGameStore.getState().exportGame()!).career.lineup?.tactic.formation).toBe('4-1-2-1-2');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Postura' }), 'attacking');
-    await user.click(screen.getByRole('button', { name: 'Jogar partida' }));
+    await user.click(screen.getByRole('button', { name: 'Central do Clube' }));
+    await user.click(screen.getByRole('button', { name: 'Acompanhar ao vivo' }));
     expect(screen.getByRole('heading', { name: 'Bola rolando' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));
     await waitFor(() => expect(useGameStore.getState().systems.lastSummary?.competition).toBe('state'));
@@ -133,10 +152,27 @@ describe('componentes da interface', () => {
     await user.click(screen.getByRole('button', { name: 'Classificação' }));
     expect(screen.getByRole('table', { name: 'Classificação completa' })).toBeInTheDocument();
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(21);
+    const otherLeague = useGameStore.getState().otherLeague!;
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Divisão' }), otherLeague.id);
+    expect(within(screen.getByRole('table')).getByText(otherLeague.teams[0].name)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Calendário' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Calendário' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Competição' })).toHaveValue('all');
+    expect(screen.getByRole('heading', { name: 'Próximos jogos' })).toBeInTheDocument();
+    const summaryRows = within(screen.getByRole('table', { name: 'Resumo da classificação' })).getAllByRole('row').slice(1);
+    expect(summaryRows.length).toBeLessThanOrEqual(4);
+    expect(summaryRows.some((row) => row.textContent?.includes(teamName))).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Ver chaveamento' }));
+    expect(screen.getByRole('combobox', { name: 'Competição' })).toHaveValue(useGameStore.getState().systems.cup.id);
+    expect(screen.getByRole('heading', { name: 'Calendário das etapas' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Competição' }), 'all');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Exibir jogos' }), 'all');
     expect(screen.getByText('Rodada 38')).toBeInTheDocument();
-    expect(screen.getAllByLabelText(/^Placar /)).toHaveLength(10);
+    const firstLeagueRound = screen.getByText('Rodada 01').closest('details')!;
+    expect(within(firstLeagueRound).getAllByLabelText(/^Placar /)).toHaveLength(10);
+    await user.click(screen.getByRole('button', { name: 'Resultados' }));
+    expect(screen.getByRole('heading', { name: 'Resultados' })).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/^Placar /).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: 'Elenco' }));
     expect(screen.getByRole('table', { name: 'Elenco do clube' })).toBeInTheDocument();
   });
@@ -155,10 +191,13 @@ describe('componentes da interface', () => {
     useGameStore.setState(repairLineup(updated, career.lineup));
     render(<App />);
     expect(screen.getByText(/Suspenso · 2 jogo/)).toBeInTheDocument();
-    const goalkeeper = screen.getByRole('combobox', { name: 'Titular 1 · GOL' }) as HTMLSelectElement;
-    const replacement = Array.from(goalkeeper.options).find((option) => option.value !== goalkeeper.value)!;
-    await user.selectOptions(goalkeeper, replacement.value);
-    expect(useGameStore.getState().lineup?.starterIds[0]).toBe(replacement.value);
+    await user.click(screen.getByRole('button', { name: 'Preparar partida' }));
+    const currentId = useGameStore.getState().lineup!.starterIds[0];
+    const goalkeeper = team.squad.find((p) => p.id === currentId)!;
+    const replacement = team.squad.find((p) => p.primaryPosition === 'GK' && p.id !== currentId && p.id !== suspended && !p.injury && !p.discipline.suspendedMatches)!;
+    dragPlayer(screen.getByText(replacement.name).closest('tr')!, screen.getByTitle(goalkeeper.name));
+    expect(useGameStore.getState().lineup?.starterIds[0]).toBe(replacement.id);
+    await user.click(screen.getByRole('button', { name: 'Central do Clube' }));
     for (let i = 0; i < 8 && useGameStore.getState().currentRound < 6; i++) {
       await act(async () => { screen.getByRole('button', { name: 'Jogar rodada' }).click(); });
       await waitFor(() => expect(useGameStore.getState().isAdvancing).toBe(false));
@@ -167,6 +206,46 @@ describe('componentes da interface', () => {
     expect(useGameStore.getState().currentRound).toBe(6);
     expect(screen.getByRole('heading', { name: 'Resumo · Rodada 5' })).toBeInTheDocument();
   }, 15000);
+
+  it('troca jogadores por arraste entre o campo, o banco e os não relacionados', () => {
+    const store = useGameStore.getState();
+    store.startNewGame(42);
+    store.selectTeam(useGameStore.getState().league!.teams[0].id);
+    store.autoLineup();
+    store.navigate('lineup');
+    const career = careerOf(useGameStore.getState());
+    const team = ownTeam(career);
+    const lineup = career.lineup!;
+    const starter = team.squad.find((player) => player.id === lineup.starterIds[0])!;
+    const reserve = team.squad.find((player) => lineup.substituteIds.includes(player.id) && player.primaryPosition === 'GK')!;
+    const getLineup = () => useGameStore.getState().lineup!;
+    const row = (group: string, name: string) => within(screen.getByRole('table', { name: group })).getByText(name).closest('tr')!;
+    render(<App />);
+    const outside = team.squad.find((player) => !lineup.starterIds.includes(player.id) && !lineup.substituteIds.includes(player.id) && !player.injury && !player.discipline.suspendedMatches)!;
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    dragPlayer(row('Não relacionados', outside.name), screen.getByRole('heading', { name: 'Reservas (10/10)' }));
+    expect(getLineup().substituteIds).toEqual(lineup.substituteIds);
+    dragPlayer(row('Reservas', reserve.name), screen.getByTitle(starter.name));
+    expect(getLineup().starterIds[0]).toBe(reserve.id);
+    expect(getLineup().substituteIds).toContain(starter.id);
+
+    dragPlayer(row('Reservas', starter.name), screen.getByRole('heading', { name: /Não relacionados/ }));
+    expect(getLineup().substituteIds).not.toContain(starter.id);
+    dragPlayer(row('Não relacionados', starter.name), screen.getByTitle(reserve.name));
+    expect(getLineup().starterIds[0]).toBe(starter.id);
+    expect(getLineup().substituteIds).not.toContain(reserve.id);
+
+    const otherReserve = team.squad.find((player) => getLineup().substituteIds.includes(player.id))!;
+    dragPlayer(row('Não relacionados', reserve.name), row('Reservas', otherReserve.name));
+    expect(getLineup().substituteIds).toContain(reserve.id);
+    expect(getLineup().substituteIds).not.toContain(otherReserve.id);
+    dragPlayer(row('Não relacionados', otherReserve.name), screen.getByRole('heading', { name: 'Reservas (9/10)' }));
+    expect(getLineup().substituteIds).toHaveLength(10);
+    const stillOutside = team.squad.find((player) => !getLineup().starterIds.includes(player.id) && !getLineup().substituteIds.includes(player.id) && !player.injury && !player.discipline.suspendedMatches)!;
+    act(() => store.toggleReserve(stillOutside.id));
+    expect(getLineup().substituteIds).toHaveLength(10);
+    expect(getLineup().substituteIds).not.toContain(stillOutside.id);
+  });
 
   it('aplica as alterações do editor à seleção e ao elenco de uma nova carreira', async () => {
     const user = userEvent.setup();

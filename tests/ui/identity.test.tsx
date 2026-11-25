@@ -83,6 +83,7 @@ describe('ritmo e identidade na interface', () => {
     await user.click(screen.getByRole('button', { name: 'Finanças' }));
     await user.click(screen.getByRole('button', { name: 'Mercado' }));
     expect(screen.getByRole('button', { name: 'Deixar de observar' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Buscar jogadores' }));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Lista' }), 'watch');
     expect(screen.getByRole('table', { name: 'Jogadores no mercado' })).toHaveTextContent(watch.playerName);
     const s = useGameStore.getState();
@@ -115,6 +116,8 @@ describe('ritmo e identidade na interface', () => {
     const budget = ownTeam(careerOf(useGameStore.getState())).budget;
     render(<App />);
     const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Propostas recebidas' }));
+    await user.click(screen.getByRole('button', { name: 'Contraproposta' }));
     const input = screen.getByRole('spinbutton', { name: `Contraproposta por ${offer.playerName} (R$)` });
     await user.clear(input);
     await user.type(input, String(offer.amount + 1000));

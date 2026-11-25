@@ -38,7 +38,11 @@ describe('decisões rápidas de carreira na interface', () => {
     const c = legacy.data.career as Career;
     const lineups: Record<string, Lineup> = {};
     for (const team of c.league.teams) {
-      try { lineups[team.id] = team.id === c.selectedTeamId && c.lineup ? c.lineup : autoPickLineup(team); }
+      try {
+        const lineup = team.id === c.selectedTeamId && c.lineup ? c.lineup : autoPickLineup(team);
+        lineup.substituteIds = team.squad.filter((p) => !lineup.starterIds.includes(p.id) && !p.injury && !p.discipline.suspendedMatches).map((p) => p.id).sort();
+        lineups[team.id] = lineup;
+      }
       catch (error) { if (!(error instanceof LineupUnavailableError)) throw error; }
     }
     let expected = startRound(c.league, seasonSeed(c), lineups);
@@ -51,6 +55,7 @@ describe('decisões rápidas de carreira na interface', () => {
     useGameStore.getState().loadGame(1);
     expect(useGameStore.getState().error).toBeNull();
     expect(useGameStore.getState().live).toEqual(expected);
+    expect(useGameStore.getState().lineup?.substituteIds.length).toBeLessThanOrEqual(10);
     expect(useGameStore.getState().systems.cup.status).toBe('deferred');
     expect(useGameStore.getState().paused).toBe(true);
   });
@@ -61,12 +66,16 @@ describe('decisões rápidas de carreira na interface', () => {
     useGameStore.getState().navigate('market');
     render(<App />);
     const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Propostas recebidas' }));
+    expect(screen.queryByRole('table', { name: 'Jogadores no mercado' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: `Analisar proposta por ${offer.playerName}` }));
     await user.click(screen.getByRole('button', { name: `Aceitar proposta por ${offer.playerName}` }));
     expect(useGameStore.getState().error).toBeNull();
     expect(ownTeam(careerOf(useGameStore.getState())).squad.some((p) => p.id === offer.playerId)).toBe(false);
     const navigation = screen.getByRole('navigation', { name: 'Navegação principal' });
     expect(navigation).not.toHaveTextContent('História');
     expect(navigation).not.toHaveTextContent('Partida');
+    await user.click(screen.getByRole('button', { name: 'Minhas negociações' }));
     await user.click(screen.getByRole('button', { name: 'Ver movimentações do mercado' }));
     expect(screen.getByRole('table', { name: 'Histórico de transferências' })).toHaveTextContent(offer.playerName);
   });
@@ -120,8 +129,9 @@ describe('decisões rápidas de carreira na interface', () => {
     expect(screen.getByRole('combobox', { name: 'Jogador B' })).toHaveValue(useUiStore.getState().compareRight);
     expect(screen.getByText('Finalização')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Mercado' }));
-    expect(screen.getByRole('combobox', { name: 'Posição' })).toHaveValue('GK');
     expect(screen.getByRole('region', { name: 'Negociação' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Buscar jogadores' }));
+    expect(screen.getByRole('combobox', { name: 'Posição' })).toHaveValue('GK');
     await user.click(screen.getByRole('button', { name: 'Elenco' }));
     await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por posição' }), 'CB');
     await user.click(screen.getByRole('button', { name: 'Finanças' }));
@@ -138,7 +148,8 @@ describe('decisões rápidas de carreira na interface', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Preparar partida' }));
     expect(screen.getAllByText(/Copa dos Horizontes ·/).length).toBeGreaterThan(0);
-    await user.click(screen.getByRole('button', { name: 'Jogar partida' }));
+    await user.click(screen.getByRole('button', { name: 'Central do Clube' }));
+    await user.click(screen.getByRole('button', { name: 'Acompanhar ao vivo' }));
     expect(useGameStore.getState().liveCompetition).toBe('cup');
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));
     expect(useGameStore.getState().error).toBeNull();

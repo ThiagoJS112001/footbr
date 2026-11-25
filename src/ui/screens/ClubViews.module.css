@@ -6,7 +6,7 @@
 .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .squad { grid-template-columns: minmax(0, 3.2fr) minmax(230px, 1fr); margin-bottom: 22px; }
 .academy { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
-.lineup { grid-template-columns: minmax(185px, .75fr) minmax(0, 1.2fr) minmax(0, 1.25fr); align-items: stretch; }
+.lineup { grid-template-columns: minmax(0, 1fr) minmax(0, 1.42fr); gap: 16px; }
 .surface { min-width: 0; background: linear-gradient(150deg, #0d2633f0, #071b27f5); }
 .stack { display: grid; gap: 14px; min-width: 0; }
 .summary { display: grid; gap: 18px; padding: 20px; }
@@ -15,14 +15,59 @@
 .tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 5px; border-bottom: 1px solid #214350; }
 .tabs button { display: inline-flex; justify-content: center; align-items: center; gap: 7px; }
 .tabs button[aria-pressed="false"] { background: transparent; border-color: transparent; }
-.tableTabs { margin: 0; padding: 8px; }
-.toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 0 16px 14px; }
-.toolbar button { padding-inline: 12px; }
-.toolbar input, .lineupTable select { min-height: 34px; padding: 6px 9px; border: 1px solid #254553; border-radius: 6px; background: #081d2a; color: var(--text); font-size: .75rem; }
-.toolbar input { width: 142px; min-height: 42px; }
-.filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
-.filters label { min-width: 115px; }
-.filters input { min-height: 36px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; padding: 0 16px 14px; }
+.toolbar button { flex: 1 0 188px; justify-content: center; }
+.toolbar input { flex: 3 1 220px; min-width: 0; min-height: 42px; padding: 8px 12px; border: 1px solid #254553; border-radius: 6px; background: #081d2a; color: var(--text); font-size: .8rem; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.divisionPicker { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 9px; border: 1px solid #315364; border-radius: 7px; background: linear-gradient(145deg, #153342, #0a202d); }
+.divisionPicker:hover { border-color: var(--accent); }
+.divisionPicker:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.divisionPickerLabel { color: var(--muted); font-size: .65rem; font-weight: 600; }
+.divisionPickerControl { position: relative; display: block; }
+.divisionPickerControl select { appearance: none; display: block; min-width: 104px; padding: 2px 22px 2px 0; border: 0; border-radius: 4px; background: transparent; color: var(--text); font-size: .75rem; font-weight: 700; cursor: pointer; }
+.divisionPickerControl select:focus-visible { outline: none; }
+.divisionPickerControl option { background: var(--surface-deep); color: var(--text); }
+.divisionPickerControl svg { position: absolute; inset: 50% 0 auto auto; transform: translateY(-50%); color: var(--accent); pointer-events: none; }
+.calendarControls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 18px; margin-bottom: 22px; }
+.competitionPicker { position: relative; display: block; }
+.competitionPicker svg { position: absolute; inset: 50% auto auto 13px; transform: translateY(-50%); color: var(--accent); pointer-events: none; }
+.competitionPicker select { width: min(340px, 100%); min-width: min(255px, 100%); padding-left: 41px; }
+.calendarTabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: #0a202d; }
+.calendarTabs button { flex: 1 0 auto; justify-content: center; }
+.calendarTabs button[aria-pressed="false"] { background: transparent; border-color: transparent; }
+.calendarLayout { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.calendarAgenda { list-style: none; margin: 0; padding: 10px 16px; }
+.calendarAgenda > li { display: grid; grid-template-columns: minmax(75px, .5fr) minmax(145px, 1fr) minmax(0, 2.5fr); align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.calendarAgenda > li:last-child { border-bottom: 0; }
+.calendarAgenda time { color: var(--muted); font-size: .75rem; }
+.calendarCompetition { display: grid; justify-items: start; gap: 4px; min-width: 0; }
+.calendarCompetition span { display: inline-flex; gap: 5px; align-items: center; }
+.calendarCompetition small { font-size: .7rem; color: var(--muted); }
+.calendarMatch { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; font-size: .77rem; }
+.calendarMatch strong { min-width: 42px; }
+.calendarLayout li.calendarRoundGame { display: block; }
+.calendarStandings table td, .calendarStandings table th { padding-inline: 8px; }
+.marketTabs { border-bottom-color: var(--accent-line); }
+.marketTabs button { padding-inline: 16px; }
+.marketCount { display: inline-grid; min-width: 22px; height: 22px; padding-inline: 4px; place-items: center; border-radius: 12px; background: var(--accent-soft); color: var(--accent-text); font-size: .7rem; }
+.marketTabs button[aria-pressed="true"] .marketCount { background: #eefcf0; color: #08682c; }
+.marketOffers { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); }
+.marketOffers td button { min-height: 32px; padding: 6px 9px; }
+.marketIdentity { display: flex; gap: 10px; align-items: center; }
+.marketIdentity small { display: block; margin-top: 3px; color: var(--muted); }
+.marketPlayerHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px; }
+.marketPlayerHeading h2 { font-size: 1.15rem; }
+.marketDetails > section { display: grid; gap: 12px; padding: 16px 18px; border-top: 1px solid var(--line-soft); }
+.marketDetails h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .9rem; }
+.marketDetails h3 svg { color: var(--accent); }
+.marketFacts { margin: 0; border: 1px solid var(--line-soft); border-radius: 7px; font-size: .78rem; }
+.marketFacts > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); }
+.marketFacts > div:last-child { border-bottom: 0; }
+.marketFacts dt { color: var(--muted); }
+.marketFacts dd { margin: 0; text-align: right; font-weight: 650; }
+.marketFacts progress { width: 70px; }
+.marketActions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.marketActions button { flex: 1 0 auto; justify-content: center; padding-inline: 10px; }
 .tableArea > div, .standings > [role="region"] { max-height: 470px; overflow: auto; }
 .standings > [role="region"] { max-height: 515px; }
 .tableArea thead { position: sticky; top: 0; z-index: 1; }
@@ -36,6 +81,7 @@
 .standings table td:nth-child(2) { width: 43%; min-width: 155px; }
 .squad table td:first-child button > span:first-child { width: 31px; height: 31px; }
 .squad table td:first-child button svg { width: 22px; height: 22px; }
+.positionFilter { display: block; width: 108px; margin-bottom: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-deep); color: var(--text); font: inherit; }
 .ranking { margin: 0; padding: 0; list-style: none; }
 .ranking li { display: flex; align-items: center; gap: 12px; padding: 7px 16px; border-bottom: 1px solid #18333f; }
 .ranking li:last-child { border-bottom: 0; }
@@ -52,29 +98,44 @@
 .progress::-webkit-progress-bar { background: #213e4c; }
 .progress::-webkit-progress-value { background: var(--accent); border-radius: 8px; }
 .progress::-moz-progress-bar { background: var(--accent); border-radius: 8px; }
-.pitch { position: relative; display: grid; align-items: center; background: #092b22; }
-.pitch svg { width: 100%; height: 100%; max-height: none; }
+.pitchPanel { border-color: #196047; background: linear-gradient(165deg, #092c2d, #071b27 45%); }
+.pitch { position: relative; margin: 0 8px 8px; border-radius: 9px; overflow: hidden; background: #092b22; }
+.pitch svg { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1.1; max-height: none; }
 .pitch > span { position: absolute; z-index: 1; top: 10px; right: 10px; }
 .tacticControls { display: grid; gap: 14px; padding: 16px; }
-.lineupTable select { width: 100%; min-width: 0; }
+.pitchPanel .tacticControls { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: 10px; padding: 8px 12px 12px; }
+.pitchPanel .tacticControls select { width: 100%; min-width: 0; }
+.pitchPanel .tacticControls button { padding-inline: 10px; }
+.pitch foreignObject div { box-sizing: border-box; width: 100%; height: 100%; border-radius: 5px; }
+.lineup [draggable="true"] { cursor: grab; }
+.pitch .dropSlot { border: 1px dashed #61f58a; background: #20d76122; }
+.lineupTable tr.dropSlot > td { background: #20d76122; }
+.lineupTable { display: grid; gap: 10px; padding: 10px; }
+.rosterGroup { min-width: 0; background: #071d29; transition: border-color .15s; }
+.rosterGroup > :first-child { min-height: 42px; padding: 9px 12px; justify-content: flex-start; flex-wrap: wrap; gap: 6px 12px; }
+.rosterGroup.dropGroup { border-color: #48dc78; }
+.groupDetail { color: var(--muted); font-size: .75rem; }
+.rosterShirt { flex: none; fill: #174c86; color: #d6e5f3; }
+.lineupHint { margin: 0 3px; font-size: .75rem; color: var(--muted); }
 .lineupTable td:first-child { width: 48%; max-width: 215px; }
 .lineupTable table { min-width: 0; }
 .lineupTable table td, .lineupTable table th { height: 36px; padding: 3px 8px; }
-.lineupTable select { min-height: 29px; }
-.bottomBar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 20px; padding: 14px; }
-.bottomBar > :first-child { margin-right: auto; }
-.bottomBar strong { display: block; margin-top: 4px; font-size: 1.1rem; }
+.lineupSummary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin-bottom: 16px; padding: 10px 14px; }
+.lineupAverages { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+.lineupAverages strong { margin-left: 7px; color: var(--text); }
 @media (max-width: 1240px) {
-  .lineup { grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); }
-  .lineupTable { grid-column: 1 / -1; }
+  .calendarLayout { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+  .calendarAgenda > li { grid-template-columns: auto minmax(0, 1fr); }
+  .calendarAgenda .calendarMatch { grid-column: 1 / -1; }
+  .pitchPanel .tacticControls { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
+  .pitchPanel .tacticControls button { grid-column: 1 / -1; justify-self: start; }
   .squad { grid-template-columns: minmax(0, 1fr) minmax(215px, .32fr); }
 }
 @media (max-width: 900px) {
-  .split, .academy, .squad { grid-template-columns: minmax(0, 1fr); }
+  .split, .academy, .squad, .lineup, .calendarLayout, .marketOffers { grid-template-columns: minmax(0, 1fr); }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
-  .lineup { grid-template-columns: minmax(0, 1fr); }
   .metric { padding: 10px; gap: 8px; }
   .metric svg { width: 23px; }
   .profile { flex-direction: column; }

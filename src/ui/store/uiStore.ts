@@ -6,7 +6,7 @@ export const initialUiPreferences = {
   marketSelected: null as string | null, marketOffer: 0, marketSalary: 0, marketYears: 3,
   marketDealType: 'buy' as 'buy' | 'loan',
   squadPosition: 'all' as PlayerPosition | 'all', compareLeft: '', compareRight: '', compareSearch: '',
-  squadSelected: null as string | null, calendarOnlyMine: false,
+  squadSelected: null as string | null, calendarOnlyMine: true,
 };
 export const useUiStore = create(() => ({ ...initialUiPreferences }));
 export const resetUiPreferences = () => useUiStore.setState({ ...initialUiPreferences });

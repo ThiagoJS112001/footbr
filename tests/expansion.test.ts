@@ -225,7 +225,10 @@ describe('mundo ativo, copa e carreira', () => {
     expect(next.career.otherLeague).toEqual(c.otherLeague);
     expect(next.career.systems.cup.status).toBe('deferred');
     expect(Object.keys(next.progress!.lineups!)).toHaveLength(20);
-    expect(next.progress!.lineups![c.league.teams[0].id]).toEqual(autoPickLineup(c.league.teams[0]));
+    const team = c.league.teams[0];
+    const lineup = autoPickLineup(team);
+    const previousBench = team.squad.filter((p) => !lineup.starterIds.includes(p.id) && !p.injury && !p.discipline.suspendedMatches).map((p) => p.id).sort();
+    expect(next.progress!.lineups![team.id]).toEqual({ ...lineup, substituteIds: previousBench });
   });
 
   it('rejeita dados de copa e base corrompidos e explica fatos sem prometer causalidade', () => {

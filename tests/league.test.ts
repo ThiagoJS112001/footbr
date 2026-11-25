@@ -3,7 +3,7 @@ import { generateLeague } from '../src/engine/generators/league';
 import { generateTeam } from '../src/engine/generators/team';
 import type { League } from '../src/engine/models/League';
 import type { Match } from '../src/engine/models/Match';
-import { autoPickLineup, calculateStandings, generateSchedule, LineupUnavailableError, playRound, simulateSeason } from '../src/engine/league';
+import { autoPickLineup, calculateStandings, formations, generateSchedule, LineupUnavailableError, playRound, simulateSeason } from '../src/engine/league';
 
 function manualLeague(scores: [string, string, number, number][]): League {
   const league = generateLeague(1, 7);
@@ -98,13 +98,18 @@ describe('classificação e desempates', () => {
 });
 
 describe('escalação automática', () => {
-  it.each(['4-4-2', '4-3-3', '3-5-2', '4-2-3-1', '5-3-2', '4-1-4-1'] as const)('respeita posições na formação %s', (formation) => {
+  it.each(formations)('respeita posições na formação %s', (formation) => {
     const team = generateTeam(123);
     team.defaultTactic.formation = formation;
     const before = structuredClone(team);
     const lineup = autoPickLineup(team);
     expect(lineup.starterIds).toHaveLength(11);
-    expect(new Set([...lineup.starterIds, ...lineup.substituteIds]).size).toBe(25);
+    expect(lineup.substituteIds).toHaveLength(10);
+    expect(new Set([...lineup.starterIds, ...lineup.substituteIds]).size).toBe(21);
+    const candidates = team.squad.filter((player) => !lineup.starterIds.includes(player.id))
+      .sort((a, b) => b.overall - a.overall || a.id.localeCompare(b.id));
+    const firstPicks = candidates.filter((player, index) => candidates.findIndex((other) => other.primaryPosition === player.primaryPosition) === index);
+    expect(lineup.substituteIds).toEqual([...firstPicks, ...candidates.filter((player) => !firstPicks.includes(player))].slice(0, 10).map((player) => player.id));
     for (const id of lineup.starterIds) {
       const player = team.squad.find((candidate) => candidate.id === id)!;
       expect([player.primaryPosition, player.secondaryPosition]).toContain(lineup.positions![id]);

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 import styles from './DataTable.module.css';
 
 export interface Column<T> {
   id: string;
   label: string;
+  headerControl?: ReactNode;
   render: (row: T) => ReactNode;
   sortValue?: (row: T) => string | number;
   align?: 'left' | 'right' | 'center';
@@ -15,13 +16,14 @@ interface Props<T> {
   columns: readonly Column<T>[];
   getRowId: (row: T) => string;
   getRowClassName?: (row: T) => string;
+  getRowProps?: (row: T) => HTMLAttributes<HTMLTableRowElement>;
   initialSort?: { id: string; direction: 'asc' | 'desc' };
   sort?: NonNullable<Props<T>['initialSort']>;
   onSortChange?: (sort: NonNullable<Props<T>['initialSort']>) => void;
   pageSize?: number;
 }
 
-export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName, initialSort, sort: controlledSort, onSortChange, pageSize }: Props<T>) {
+export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName, getRowProps, initialSort, sort: controlledSort, onSortChange, pageSize }: Props<T>) {
   const [localSort, setSort] = useState(initialSort);
   const sort = controlledSort ?? localSort;
   const [page, setPage] = useState(0);
@@ -47,8 +49,9 @@ export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName
         }}>
           {col.label}<span aria-hidden="true" className={sort?.id === col.id ? styles.activeArrow : styles.arrow}>{sort?.id === col.id ? sort.direction === 'asc' ? '↑' : '↓' : '↕'}</span>
         </button> : col.label}
+        {col.headerControl}
       </th>)}</tr></thead>
-      <tbody>{visible.map((row) => <tr key={getRowId(row)} className={getRowClassName?.(row)}>{columns.map((col) => <td key={col.id} style={{ textAlign: col.align ?? 'left' }}>{col.render(row)}</td>)}</tr>)}</tbody>
+      <tbody>{visible.map((row) => <tr key={getRowId(row)} className={getRowClassName?.(row)} {...getRowProps?.(row)}>{columns.map((col) => <td key={col.id} style={{ textAlign: col.align ?? 'left' }}>{col.render(row)}</td>)}</tr>)}</tbody>
     </table>
     {rows.length === 0 && <p className={styles.empty}>Nenhum registro para exibir.</p>}
     {pageSize && pages > 1 && <div className={styles.pagination}><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Página anterior</button><span>Página {currentPage + 1} de {pages} · {rows.length} registros</span><button disabled={currentPage === pages - 1} onClick={() => setPage(currentPage + 1)}>Próxima página</button></div>}

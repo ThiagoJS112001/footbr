@@ -15,7 +15,7 @@ const navigation: { screen: GameScreen; label: string }[] = [
   { screen: 'dashboard', label: 'Central do Clube' }, { screen: 'squad', label: 'Elenco' },
   { screen: 'lineup', label: 'Escalação' },
   { screen: 'standings', label: 'Classificação' }, { screen: 'calendar', label: 'Calendário' },
-  { screen: 'cup', label: 'Copa' }, { screen: 'academy', label: 'Categorias de Base' },
+  { screen: 'academy', label: 'Categorias de Base' },
   { screen: 'market', label: 'Mercado' }, { screen: 'finances', label: 'Finanças' },
   { screen: 'board', label: 'Diretoria' },
 ];

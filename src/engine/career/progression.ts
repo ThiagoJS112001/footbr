@@ -1,5 +1,6 @@
 import type { Lineup } from '../models';
 import { autoPickLineup, LineupUnavailableError, playRound } from '../league';
+import { maxReserves } from '../league/lineup';
 import { finishRound, startRound } from '../league/season';
 import type { RoundSession } from '../league/season';
 import { finishMatch } from '../simulation/simulateMatch';
@@ -45,10 +46,12 @@ export function upcomingDecision(career: Career): string | null {
 }
 export function repairLineup(career: Career, preferred?: Lineup | null): Career {
   try {
-    const lineup = autoPickLineup(ownTeam(career), preferred ?? undefined, !preferred);
+    const team = ownTeam(career);
+    const lineup = autoPickLineup(team, preferred ?? undefined, !preferred);
     if (preferred) {
-      const previous = new Set([...preferred.starterIds, ...preferred.substituteIds]);
-      lineup.substituteIds = lineup.substituteIds.filter((id) => previous.has(id));
+      const available = new Set(team.squad.filter((player) => !player.injury && !player.discipline.suspendedMatches).map((player) => player.id));
+      lineup.substituteIds = [...new Set([...preferred.substituteIds, ...preferred.starterIds])]
+        .filter((id) => available.has(id) && !lineup.starterIds.includes(id)).slice(0, maxReserves);
     }
     return { ...career, lineup };
   } catch (error) { if (error instanceof LineupUnavailableError) return { ...career, lineup: null }; throw error; }

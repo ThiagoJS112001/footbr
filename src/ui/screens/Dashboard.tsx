@@ -7,7 +7,7 @@ import { competitionTeams } from '../../engine/career/cup';
 import { RoundReview } from '../components/RoundReview';
 import { seasonComplete } from '../../engine/career/progression';
 import { recentClubMatches } from '../../engine/career/history';
-import { averageOverall, currency, matchOutcome, padRound, positionLabels, seasonDate } from '../utils';
+import { averageOverall, currency, formationLabel, matchOutcome, padRound, positionLabels, seasonDate } from '../utils';
 import { ClubBadge } from '../components/ClubBadge';
 import { Icon } from '../components/Icon';
 import { StandingsTable } from '../components/StandingsTable';
@@ -85,7 +85,7 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
         </Panel>
         <div className={overview.squadOverview}>
           <dl className={overview.metrics}>
-            <div><Icon name="lineup" /><dt>Formação</dt><dd>{tactic.formation}</dd></div>
+            <div><Icon name="lineup" /><dt>Formação</dt><dd>{formationLabel(tactic.formation)}</dd></div>
             <div><Zap aria-hidden="true" /><dt>Força média</dt><dd>{Math.round(averageOverall(team))}</dd></div>
             <div><Icon name="squad" /><dt>Condição do elenco</dt><dd>{condition}%</dd></div>
             <div><Smile aria-hidden="true" /><dt>Moral</dt><dd>{morale}%</dd></div>
@@ -166,7 +166,7 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
     {!seasonComplete(career) && <Panel title="Ajustes para o próximo jogo" icon="squad">
       <p className={styles.matchMeta}>{cupEvent ? cupEvent.cup.name + ' · ' + cupEvent.round.name : 'Rodada ' + currentRound} · {nextMatch && homeTeam && awayTeam ? homeTeam.name + ' × ' + awayTeam.name : 'Folga'}</p>
       <div className={styles.controls}>
-        <label className={styles.filterLabel}>Formação<select disabled={disabled} value={tactic.formation} onChange={(event) => state.updateTactic({ formation: event.target.value as Tactic['formation'] })}>{formations.map((formation) => <option key={formation}>{formation}</option>)}</select></label>
+        <label className={styles.filterLabel}>Formação<select disabled={disabled} value={tactic.formation} onChange={(event) => state.updateTactic({ formation: event.target.value as Tactic['formation'] })}>{formations.map((formation) => <option key={formation} value={formation}>{formationLabel(formation)}</option>)}</select></label>
         <label className={styles.filterLabel}>Postura<select disabled={disabled} value={tactic.style} onChange={(event) => state.updateTactic({ style: event.target.value as Tactic['style'] })}><option value="defensive">Defensiva</option><option value="balanced">Equilibrada</option><option value="attacking">Ofensiva</option></select></label>
       </div>
       <PreparationChecklist team={team} lineup={readyLineup} career={career} />
