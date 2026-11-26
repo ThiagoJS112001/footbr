@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { League, MatchEvent, MatchStatistics, Team } from '../../engine/models';
+import { useEffect, useState, type HTMLAttributes } from 'react';
+import type { League, MatchEvent, MatchStatistics, Player, Team } from '../../engine/models';
 import type { PlayingStyle } from '../../engine/models/Tactic';
 import { playerTrait, traitInfo } from '../../engine/models/personality';
 import { matchSnapshot } from '../../engine/simulation/simulateMatch';
@@ -19,11 +19,8 @@ import styles from '../App.module.css';
 import css from './Match.module.css';
 
 const speeds = [1, 2, 4, 8];
-const postures = [
-  { id: 'defensive', label: 'Defensiva', icon: 'shield' },
-  { id: 'balanced', label: 'Equilibrada', icon: 'target' },
-  { id: 'attacking', label: 'Ofensiva', icon: 'trend' },
-] as const satisfies readonly { id: PlayingStyle; label: string; icon: 'shield' | 'target' | 'trend' }[];
+const postures: Record<PlayingStyle, string> = { defensive: 'Defensiva', balanced: 'Equilibrada', attacking: 'Ofensiva' };
+const fits = (reserve: Player, outgoing: Player) => reserve.primaryPosition === outgoing.primaryPosition || reserve.secondaryPosition === outgoing.primaryPosition;
 
 function MatchStats({ stats }: { stats: MatchStatistics }) {
   return <section className={`${styles.panel} ${css.stats}`} aria-label="Estatísticas da partida">
@@ -57,7 +54,7 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
   const [inId, setInId] = useState('');
   const [onlyHighlights, setOnlyHighlights] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const outgoingSelect = useRef<HTMLSelectElement>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const running = !!live && !paused;
   useEffect(() => {
     if (!running) return;
@@ -92,7 +89,9 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
   ].sort((a, b) => b.minute - a.minute);
 
   const outgoing = side?.active.find((p) => p.id === outId);
-  const compatibleBench = outgoing ? side?.bench.filter((p) => p.primaryPosition === outgoing.primaryPosition || p.secondaryPosition === outgoing.primaryPosition) ?? [] : [];
+  const compatibleBench = outgoing ? side?.bench.filter((p) => fits(p, outgoing)) ?? [] : [];
+  const canSubstitute = !!session && !!side && side.substitutions < session.config.maxSubstitutions;
+  const draggedPlayer = canSubstitute ? side.bench.find((p) => p.id === draggedId) : undefined;
   const formation = side?.team.lineup.tactic.formation;
   const slotIds = [...((isHome ? session?.initialHomeLineup : session?.initialAwayLineup)?.starterIds ?? [])];
   for (const event of match.events) {
@@ -102,6 +101,24 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
   }
   const playersOnPitch = slotIds.map((id) => side?.active.find((p) => p.id === id));
   const otherMatches = matches.filter((m) => m.id !== match.id);
+  const replacePlayer = (outgoingId: string, incomingId: string) => {
+    substitute(outgoingId, incomingId);
+    setOutId('');
+    setInId('');
+  };
+  const dropOnStarter = (index: number): HTMLAttributes<HTMLDivElement> => {
+    const starter = playersOnPitch[index];
+    if (!draggedPlayer || !starter || !fits(draggedPlayer, starter)) return {};
+    return {
+      className: css.dropStarter,
+      onDragOver: (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; },
+      onDrop: (event) => {
+        event.preventDefault();
+        if (event.dataTransfer.getData('text/plain') === draggedPlayer.id) replacePlayer(starter.id, draggedPlayer.id);
+        setDraggedId(null);
+      },
+    };
+  };
 
   return <div className={`${css.screen} ${inTechnicalView ? css.paused : ''}`}>
     <PageHeader eyebrow={cup ? `${cup.name} · ${cup.rounds.find((r) => r.round === round)?.name ?? ''}` : league.name}
@@ -121,24 +138,33 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
     {inTechnicalView && session && side && formation && <div className={css.technical}>
       <div className={css.technicalGrid}>
         <Panel title={`Escalação em campo · ${team.name}`} icon="shirt" action={<span className={styles.pill}>{formationLabel(formation)}</span>} className={css.pitch}>
-          <TacticalPitch variant="match" formation={formation} players={playersOnPitch} />
+          <div className={css.pitchControls}>
+            <label className={styles.filterLabel}>Postura em campo
+              <select value={side.team.lineup.tactic.style} onChange={(event) => changeStyle(event.target.value as PlayingStyle)}>
+                {Object.entries(postures).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            {stats && <button className={styles.secondaryButton} aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}><Icon name="trend" size={17} />{showDetails ? 'Ocultar estatísticas completas' : 'Ver estatísticas completas'}</button>}
+          </div>
+          <TacticalPitch variant="match" formation={formation} players={playersOnPitch} getSlotProps={dropOnStarter} />
         </Panel>
         <Panel title="Banco de reservas" icon="squad" className={css.bench}>
-          <DataTable caption="Banco de reservas" rows={side.bench} getRowId={(p) => p.id} columns={[
+          <p className={css.benchHint}>{canSubstitute ? 'Arraste um reserva sobre um titular da posição para substituir.' : 'Limite de substituições atingido.'}</p>
+          <DataTable caption="Banco de reservas" rows={side.bench} getRowId={(p) => p.id}
+            getRowProps={(player) => canSubstitute ? {
+              draggable: true,
+              onDragStart: (event) => {
+                event.dataTransfer.setData('text/plain', player.id);
+                event.dataTransfer.effectAllowed = 'move';
+                setDraggedId(player.id);
+              },
+              onDragEnd: () => setDraggedId(null),
+            } : {}} columns={[
             { id: 'name', label: 'Jogador', render: (p) => p.name },
             { id: 'position', label: 'Pos.', render: (p) => positionLabels[p.primaryPosition] },
             { id: 'overall', label: 'Força', render: (p) => <strong className={styles.accent}>{p.overall}</strong> },
             { id: 'fitness', label: 'Condição', render: (p) => <Level value={p.fitness} /> },
           ]} />
-        </Panel>
-        <Panel title="Comandos táticos rápidos" icon="target">
-          <div className={css.commands}>
-            <div className={css.postures} role="group" aria-label="Postura em campo">
-              {postures.map(({ id, label, icon }) => <button key={id} className={styles.secondaryButton} aria-pressed={side.team.lineup.tactic.style === id} onClick={() => changeStyle(id)}><Icon name={icon} size={21} />{label}</button>)}
-            </div>
-            <button className={styles.secondaryButton} onClick={() => outgoingSelect.current?.focus()}><Icon name="market" size={17} />Trocar jogador</button>
-            {stats && <button className={styles.secondaryButton} aria-expanded={showDetails} onClick={() => setShowDetails(!showDetails)}><Icon name="trend" size={17} />{showDetails ? 'Ocultar estatísticas completas' : 'Ver estatísticas completas'}</button>}
-          </div>
         </Panel>
       </div>
       {showDetails && stats && <Panel title="Estatísticas completas" icon="trend">
@@ -156,25 +182,23 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
       </Panel>}
       <form className={`${styles.panel} ${css.substitution}`} onSubmit={(event) => {
         event.preventDefault();
-        if (!outgoing || !compatibleBench.some((p) => p.id === inId)) return;
-        substitute(outId, inId);
-        setOutId('');
-        setInId('');
+        if (!canSubstitute || !outgoing || !compatibleBench.some((p) => p.id === inId)) return;
+        replacePlayer(outId, inId);
       }}>
         <div><h2><Icon name="market" size={21} />Substituição</h2><small>{side.substitutions}/{session.config.maxSubstitutions} usadas</small></div>
-        <label className={styles.filterLabel}>Sai<select ref={outgoingSelect} value={outgoing?.id ?? ''} onChange={(e) => { setOutId(e.target.value); setInId(''); }}>
+        <label className={styles.filterLabel}>Sai<select value={outgoing?.id ?? ''} onChange={(e) => { setOutId(e.target.value); setInId(''); }}>
           <option value="">Escolher titular</option>{side.active.map((p) => <option key={p.id} value={p.id}>{positionLabels[p.primaryPosition]} · {p.name} · {Math.round(p.fitness)}%{side.yellows[p.id] ? ' · AMARELADO' : ''}</option>)}
         </select></label>
         <label className={styles.filterLabel}>Entra<select value={inId} disabled={!outgoing} onChange={(e) => setInId(e.target.value)}>
           <option value="">Escolher reserva</option>{compatibleBench.map((p) => <option key={p.id} value={p.id}>{p.name} · F {p.overall} · {Math.round(p.fitness)}% · {traitInfo[playerTrait(p)].label}</option>)}
         </select></label>
-        <button className={styles.primaryButton} disabled={!outgoing || !inId || side.substitutions >= session.config.maxSubstitutions}><Icon name="check" size={18} />Confirmar substituição</button>
+        <button className={styles.primaryButton} disabled={!outgoing || !inId || !canSubstitute}><Icon name="check" size={18} />Confirmar substituição</button>
       </form>
     </div>}
 
     <div className={css.feeds}>
       <Panel title="Lances da partida" icon="news" action={<label className={styles.highlightFilter}><input type="checkbox" checked={onlyHighlights} onChange={(e) => setOnlyHighlights(e.target.checked)} />Só lances principais</label>}>
-        <ol className={css.timeline}>
+        <ol className={css.timeline} tabIndex={0} aria-label="Lances da partida">
           {inTechnicalView && <li><strong>{minute}′</strong><Icon name="clock" size={19} /><span><strong>Partida pausada</strong><small>Ajustes táticos em andamento.</small></span></li>}
           {timeline.map((event) => <li key={event.key} className={event.kind === 'yellow' ? css.yellow : event.kind === 'red' ? css.red : ''}>
             <strong>{event.minute}′</strong><Icon name={event.kind === 'goal' ? 'match' : event.kind === 'substitution' ? 'market' : event.kind === 'yellow' || event.kind === 'red' ? 'news' : 'target'} size={19} />

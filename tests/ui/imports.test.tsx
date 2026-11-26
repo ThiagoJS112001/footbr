@@ -46,7 +46,9 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 describe('fluxo administrativo de importação', () => {
   it('consulta, seleciona, importa dois clubes, cria carreira, mostra elenco e preserva a origem ao salvar', async () => {
     const user = userEvent.setup(); render(<App />);
-    await user.click(screen.getByRole('button', { name: /Importação de Dados/ }));
+    expect(screen.queryByRole('button', { name: /Importação de Dados/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editor de clubes e elencos' })).toBeInTheDocument();
+    act(() => useGameStore.getState().navigate('data-import'));
     expect(await screen.findByRole('heading', { name: 'Importação de Dados' })).toBeInTheDocument();
     expect(await screen.findByText('DEMONSTRAÇÃO FICTÍCIA · sem chave configurada')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Consultar clubes' })).toBeEnabled());

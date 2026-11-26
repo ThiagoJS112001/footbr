@@ -4,7 +4,9 @@
 .metric span { display: grid; gap: 3px; color: var(--muted); font-size: .8rem; }
 .metric strong { color: var(--text); font-size: clamp(1.05rem, 1.6vw, 1.55rem); }
 .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-.squad { grid-template-columns: minmax(0, 3.2fr) minmax(230px, 1fr); margin-bottom: 22px; }
+.squad { grid-template-columns: minmax(0, 3.2fr) minmax(230px, 1fr); align-items: stretch; margin-bottom: 22px; }
+.squad > .summary { display: flex; flex-direction: column; }
+.squad > .summary > button { margin-top: auto; }
 .academy { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 .lineup { grid-template-columns: minmax(0, 1fr) minmax(0, 1.42fr); gap: 16px; }
 .surface { min-width: 0; background: linear-gradient(150deg, #0d2633f0, #071b27f5); }
@@ -45,6 +47,15 @@
 .calendarCompetition small { font-size: .7rem; color: var(--muted); }
 .calendarMatch { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; font-size: .77rem; }
 .calendarMatch strong { min-width: 42px; }
+.ratedFixture { width: 100%; padding: 4px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; }
+.ratedFixture:hover, .ratedFixture[aria-expanded="true"] { border-color: var(--accent-line); background: var(--accent-soft); }
+.ratedFixture .fixtureRatingLink { color: var(--accent-text); }
+.ratingTabs { margin: 12px; }
+.ratingLayout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); align-items: start; gap: 12px; padding: 0 12px 12px; }
+.ratingLayout > .pitch { margin: 0; }
+.ratingBench { min-width: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ratingBench h3 { margin: 0; padding: 10px 12px; font-size: .85rem; }
+.ratingBench :is(th, td) { height: 29px; padding: 5px 9px; }
 .calendarLayout li.calendarRoundGame { display: block; }
 .calendarStandings table td, .calendarStandings table th { padding-inline: 8px; }
 .marketTabs { border-bottom-color: var(--accent-line); }
@@ -68,6 +79,18 @@
 .marketFacts progress { width: 70px; }
 .marketActions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .marketActions button { flex: 1 0 auto; justify-content: center; padding-inline: 10px; }
+.clubDialog { width: min(760px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #315364; border-radius: 14px; background: var(--surface-deep); color: var(--text); box-shadow: 0 24px 80px #000a; overflow: auto; }
+.clubDialog.ratingsDialog { width: min(890px, calc(100% - 32px)); }
+.clubDialog::backdrop { background: #020912cc; backdrop-filter: blur(3px); }
+.clubDialogHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); background: #102b38; }
+.clubDialogHeader h2 { margin: 0; font-size: 1.2rem; }
+.clubDialogHeader p { margin: 8px 0 0; color: var(--muted); font-size: .8rem; }
+.clubDialogHeader button { flex: none; min-height: 34px; padding: 6px 8px; }
+.renewalTerms label { flex: 1 1 130px; min-width: 0; }
+.renewalTerms :is(input, select) { width: 100%; }
+.renewalFinanceTitle { margin: 0; padding: 0 20px 8px; font-size: .9rem; }
+.clubDialog .renewalFinance { grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr)); }
+.renewalError { margin: 12px 16px 0; }
 .tableArea > div, .standings > [role="region"] { max-height: 470px; overflow: auto; }
 .standings > [role="region"] { max-height: 515px; }
 .tableArea thead { position: sticky; top: 0; z-index: 1; }
@@ -116,6 +139,17 @@
 .rosterGroup.dropGroup { border-color: #48dc78; }
 .groupDetail { color: var(--muted); font-size: .75rem; }
 .rosterShirt { flex: none; fill: #174c86; color: #d6e5f3; }
+.injuryStatus { color: #ff8181; font-size: .94rem; line-height: 1; }
+.yellowStatus, .redStatus { flex: none; display: inline-block; border-radius: 3px; padding: 2px 4px; font-size: .65rem; font-weight: 750; }
+.yellowStatus { color: #201900; background: #ffcd49; }
+.redStatus { color: white; background: #ba302c; }
+.boardPanels { display: grid; gap: 16px; }
+.boardOverview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.renewalPanel > :first-child, .renewalActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.renewalActions button[aria-expanded="true"] svg { transform: rotate(180deg); }
+@media (max-width: 900px) {
+  .boardOverview { grid-template-columns: 1fr; }
+}
 .lineupHint { margin: 0 3px; font-size: .75rem; color: var(--muted); }
 .lineupTable td:first-child { width: 48%; max-width: 215px; }
 .lineupTable table { min-width: 0; }

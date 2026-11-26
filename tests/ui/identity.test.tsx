@@ -32,6 +32,7 @@ describe('ritmo e identidade na interface', () => {
     useGameStore.getState().importGame(upgraded);
     expect(useGameStore.getState().live).toEqual(expected);
     useGameStore.getState().finishMatchNow();
+    useGameStore.getState().autoLineup();
     useGameStore.getState().kickOff();
     expect(useGameStore.getState().live!.games.every((g) => g.config.personality !== false)).toBe(true);
   });
@@ -44,7 +45,7 @@ describe('ritmo e identidade na interface', () => {
     await user.click(screen.getByRole('button', { name: 'Pausar partida' }));
     expect(useGameStore.getState().lineup).toEqual(expected);
     expect(screen.queryByRole('heading', { name: 'Se terminasse agora' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Comandos táticos rápidos' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Postura em campo' })).toBeInTheDocument();
     expect(useGameStore.getState().league!.schedule[0].matches.every((m) => m.status === 'scheduled')).toBe(true);
     await user.click(screen.getByRole('button', { name: 'Simular até o fim' }));
     await user.click(screen.getByRole('button', { name: 'Preparar próximo jogo' }));
@@ -77,6 +78,7 @@ describe('ritmo e identidade na interface', () => {
     useGameStore.getState().navigate('market');
     render(<App />);
     const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Posição' }), 'GK');
     const table = screen.getByRole('table', { name: 'Jogadores no mercado' });
     await user.click(within(within(table).getAllByRole('row')[1]).getByRole('button'));
     await user.click(screen.getByRole('button', { name: 'Observar jogador' }));

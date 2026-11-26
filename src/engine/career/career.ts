@@ -168,21 +168,6 @@ export function sellPlayer(career: Career, playerId: string, round: number): Car
   return { ...next, lineup: null, news: [`${player.name} vendido para ${buyer.name}.`, ...next.news].slice(0, 20) };
 }
 
-export function renewContract(career: Career, playerId: string, round: number): Career {
-  requireManagedClub(career);
-  const team = career.league.teams.find((t) => t.id === career.selectedTeamId)!;
-  const player = team.squad.find((p) => p.id === playerId);
-  if (!player?.contract) throw new Error('Contrato indisponível.');
-  if (activeLoan(career, playerId)) throw new Error('O contrato pertence ao clube que cedeu o jogador.');
-  if (team.budget < 0) throw new Error('Equilibre o saldo antes de renovar contratos.');
-  if (player.contract.yearsRemaining >= 3) throw new Error('O contrato já tem três anos ou mais.');
-  const salary = Math.ceil(player.contract.salary * 1.1 / 100) * 100;
-  if (team.budget < salary) throw new Error('Saldo insuficiente para pagar as luvas da renovação.');
-  let next = changeTeams(career, [{ ...team, squad: team.squad.map((p) => p.id === playerId ? { ...p, contract: { salary, yearsRemaining: 3 } } : p) }]);
-  next = addFinance(next, team.id, round, `Luvas de renovação · ${player.name}`, -salary);
-  return { ...next, news: [`${player.name} renovou por três anos.`, ...next.news].slice(0, 20) };
-}
-
 export function nextSeason(career: Career): Career {
   if (worldLeagues(career).some((l) => l.schedule.some((r) => r.matches.some((m) => m.status !== 'finished')))) throw new Error('Conclua a temporada antes de continuar.');
   if (career.systems.board.status === 'dismissed') throw new Error('Aceite um novo emprego para continuar sua carreira.');
@@ -256,7 +241,7 @@ export function nextSeason(career: Career): Career {
   const next: Career = { ...career, ...arrangeDivisions(leagues, own), season: career.season + 1, lineup: null,
     finances: [...career.finances, { teamId: ownClub.id, season: career.season + 1, round: 0, description: 'Saldo inicial da temporada', amount: 0, balance: ownClub.budget }],
     history: [...career.history, summary], freeAgents: [...remainingFree, ...released, ...newcomers], news: [`Temporada ${career.season + 1}: elenco atualizado e calendário pronto.`, ...news].slice(0, 20),
-    systems: { ...career.systems, lastSummary: null, marketRound: 0, offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o),
+    systems: { ...career.systems, lastSummary: null, marketRound: 0, renewals: [], offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o),
       academy: createAcademy(ownClub, seed, career.season + 1), board: createBoard(ownClub, own), cup: createCup(leagues.flatMap((league) => league.teams), seed, career.season + 1),
       stateCups: career.extraLeague ? createStateCups(allTeams, seed) : undefined,
       continentalCups: career.extraLeague ? createContinentalCups(divisions[0].standings.map((row) => row.teamId), career.systems.cup.championId, seed) : undefined } };

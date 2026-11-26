@@ -60,10 +60,9 @@ export function Menu() {
           <button aria-expanded={showSaves} aria-controls={savesId} onClick={() => setShowSaves(!showSaves)}>
             <FolderOpen aria-hidden="true" /> Carregar save <Icon name="next" />
           </button>
-        </div>
-        <div className={styles.shortcuts}>
-          <button disabled={!!live} onClick={() => navigate('data-import')}><Database aria-hidden="true" /> Importação de Dados</button>
-          <button disabled={!!live} onClick={() => navigate('base-editor')}><Settings2 aria-hidden="true" /> Editor de clubes e elencos</button>
+          <button disabled={!!live} onClick={() => navigate('base-editor')}>
+            <Settings2 aria-hidden="true" /> Editor de clubes e elencos <Icon name="next" />
+          </button>
         </div>
       </section>
 

@@ -17,9 +17,7 @@ export function Standings({ league: own, selectedTeamId }: { league: League; sel
   const league = divisions.find((item) => item.id === divisionId) ?? own;
   const finished = league.schedule.flatMap((round) => round.matches.filter((m) => m.status === 'finished'));
   const round = league.schedule.find((r) => r.matches.some((m) => m.status !== 'finished'))?.round ?? league.schedule.length;
-  const latest = league.schedule.filter((r) => r.matches.some((m) => m.status === 'finished')).at(-1);
   const goals = finished.reduce((sum, m) => sum + (m.score?.home ?? 0) + (m.score?.away ?? 0), 0);
-  const clubs = new Map(league.teams.map((team) => [team.id, team.name]));
   const names = new Map(league.teams.flatMap((team) => team.squad.map((player) => [player.id, player.name] as const)));
   const assists = new Map<string, number>();
   for (const { events } of finished) {
@@ -30,7 +28,6 @@ export function Standings({ league: own, selectedTeamId }: { league: League; sel
   return <>
     <PageHeader eyebrow="A DISPUTA PELO TÍTULO" title="Classificação" description="Acompanhe a tabela, a artilharia e o desempenho da liga.">
       <div className={views.filters}>
-        <span className={styles.pill}><Icon name="cup" size={16} />{league.name}</span>
         <label className={views.divisionPicker}>
           <span className={views.divisionPickerLabel}>Divisão</span>
           <span className={views.divisionPickerControl}>
@@ -40,6 +37,7 @@ export function Standings({ league: own, selectedTeamId }: { league: League; sel
             <Icon name="chevron" size={16} />
           </span>
         </label>
+        <span className={styles.pill}><Icon name="cup" size={16} />{league.name}</span>
         <span className={styles.pill}>Temporada {padRound(season)}</span>
       </div>
     </PageHeader>
@@ -61,12 +59,6 @@ export function Standings({ league: own, selectedTeamId }: { league: League; sel
       <aside className={views.stack}>
         <Ranking key={`goals-${league.id}`} title="Artilharia" unit="gol" entries={getTopScorers(league).map((player) => ({ id: player.playerId, name: player.playerName, value: player.goals }))} />
         <Ranking key={`assists-${league.id}`} title="Assistências" unit="assist." entries={[...assists].sort((a, b) => b[1] - a[1]).map(([id, value]) => ({ id, name: names.get(id) ?? 'Jogador', value }))} />
-        <section className={`${styles.panel} ${views.surface}`}>
-          <div className={styles.panelHeading}><h2><Icon name="calendar" />Últimos jogos da rodada</h2>{latest && <span className={styles.muted}>Rodada {latest.round}</span>}</div>
-          {latest ? <ul className={views.ranking}>{latest.matches.filter((m) => m.status === 'finished' && m.score).map((m) => <li key={m.id}>
-            <span>{clubs.get(m.homeTeamId)}</span><strong>{m.score?.home} × {m.score?.away}</strong><span>{clubs.get(m.awayTeamId)}</span>
-          </li>)}</ul> : <div className={views.empty}><Icon name="lineup" size={42} /><strong>Ainda não há jogos disputados.</strong><span>A rodada 1 será a primeira da temporada.</span></div>}
-        </section>
       </aside>
     </div>
   </>;

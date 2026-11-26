@@ -55,7 +55,8 @@ const clubIdentity = identity(shape({ externalId: range(0, 1e12), name: text, sh
 const player = shape({ id: text, name: text, age: range(16, 60), nationality: text, primaryPosition: position, secondaryPosition: nullable(position), attributes,
   trait: optional(oneOf('speedster', 'playmaker', 'finisher', 'versatile', 'leader')), academyClubId: optional(text),
   overall: range(1, 99), fitness: bounded(0, 100), morale: range(0, 100), injury: nullable(shape({ description: text, remainingDays: range(1, 10000) })),
-  discipline: shape({ yellowCards: range(0, 100), suspendedMatches: range(0, 100) }), contract: nullable(shape({ salary: range(0, 1e10), yearsRemaining: range(1, 5) })),
+  discipline: shape({ yellowCards: range(0, 100), suspendedMatches: range(0, 100),
+    redSuspension: optional(shape({ games: range(2, 5), teamId: text, fined: bool })) }), contract: nullable(shape({ salary: range(0, 1e10), yearsRemaining: range(1, 5) })),
   marketValue: range(0, 1e12), currentTeamId: nullable(text), potential: optional(range(1, 99)), identity: playerIdentity });
 const team = shape({ id: text, name: text, city: text, division: oneOf(1, 2, 3), squad: list(player, 60), budget: number, payroll: number, reputation: range(0, 100),
   profile: optional(oneOf('academy', 'traditional', 'community')),
@@ -90,6 +91,9 @@ const cupCheck = shape({ id: text, name: text, status: oneOf('active', 'deferred
   weeks: optional(list(range(0, 38), 3)), guestIds: optional(list(text, 4)),
   rounds: list(shape({ round: range(1, 6), name: text, afterRound: range(0, 38), matches: list(match, 28) }), 6) });
 const systemsCheck = shape({
+  renewals: optional(list((v) => object(v) && text(v.teamId) && text(v.playerId)
+    && (v.status === 'blocked' && range(2, 40)(v.availableAfterRound) || v.status === 'counter'
+      && range(1, 2)(v.attempts) && shape({ years: range(1, 4), salary: range(100, 1e10), bonus: range(0, 1e12) })(v.demand)), 2400)),
   stateCups: optional(list(cupCheck, 15)), continentalCups: optional(list(cupCheck, 2)),
   savedLineups: optional(list(shape({ teamId: text, name: oneOf('main', 'reserve', 'cup'), lineup }), 180)),
   watchlist: optional(list(shape({ playerId: text, playerName: text, value: range(0, 1e12), clubId: nullable(text) }), 100)),
@@ -203,6 +207,8 @@ function validateSystems(c: Career, ids: string[], playerIds: string[]): void {
     || !unique(s.savedLineups.map((p) => `${p.teamId}-${p.name}`)) || s.savedLineups.some((p) => !club(p.teamId) || p.lineup.starterIds.length !== 11 || !unique([...p.lineup.starterIds, ...p.lineup.substituteIds]))
     || !unique(s.milestones.map((m) => m.id)) || s.milestones.some((m) => !club(m.teamId) || m.relatedTeamId !== undefined && !club(m.relatedTeamId) || m.season > c.season)
     || !unique(s.rivalries.map((r) => [...r.teamIds].sort().join('/'))) || s.rivalries.some((r) => r.teamIds.length !== 2 || r.teamIds[0] === r.teamIds[1] || r.teamIds.some((id) => !club(id)))) throw new Error('Memória e preferências da carreira inconsistentes.');
+  const renewals = s.renewals ?? [];
+  if (!unique(renewals.map((entry) => JSON.stringify([entry.teamId, entry.playerId]))) || renewals.some((entry) => !club(entry.teamId))) throw new Error('Negociações de renovação inconsistentes.');
   const loans = s.loans.filter((l) => l.status === 'active');
   if (!unique(s.loans.map((l) => l.id)) || !unique(loans.map((l) => l.playerId)) || s.loans.some((l) => !club(l.fromId) || !club(l.toId) || l.fromId === l.toId || l.season > c.season)
     || loans.some((l) => l.season !== c.season || !worldTeams(c).find((t) => t.id === l.toId)?.squad.some((p) => p.id === l.playerId && p.contract?.salary === l.contract.salary && p.contract?.yearsRemaining === l.contract.yearsRemaining))) throw new Error('Empréstimos inconsistentes no save.');

@@ -9,6 +9,11 @@ export interface TransferRecord {
   id: string; playerId: string; playerName: string; fromId: string | null; fromName: string;
   toId: string; toName: string; fee: number; season: number; round: number;
 }
+export interface RenewalTerms { years: number; salary: number; bonus: number }
+export type RenewalNegotiation = { teamId: string; playerId: string } & (
+  { status: 'counter'; attempts: number; demand: RenewalTerms } |
+  { status: 'blocked'; availableAfterRound: number }
+);
 export interface Prospect {
   player: Player; assessed: boolean; status: 'available' | 'promoted' | 'released';
 }
@@ -40,6 +45,7 @@ export interface RoundSummary {
   position: number; positionChange: number; points: number; moneyChange: number; absences: string[]; notes: string[];
 }
 export interface CareerSystems {
+  renewals?: RenewalNegotiation[];
   savedLineups: { teamId: string; name: 'main' | 'reserve' | 'cup'; lineup: Lineup }[];
   watchlist: { playerId: string; playerName: string; value: number; clubId: string | null }[];
   loans: { id: string; playerId: string; playerName: string; fromId: string; toId: string; season: number; round: number; fee: number; contract: PlayerContract; status: 'active' | 'returned' }[];

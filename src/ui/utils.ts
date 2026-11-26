@@ -5,6 +5,8 @@ export const formationLabel = (formation: string) => formation === '4-1-2-1-2' ?
 export const positionLabels: Record<PlayerPosition, string> = {
   GK: 'GOL', CB: 'ZAG', LB: 'LE', RB: 'LD', DM: 'VOL', CM: 'MC', AM: 'MEI', LW: 'PE', RW: 'PD', ST: 'ATA',
 };
+const tacticalPositionOrder: readonly PlayerPosition[] = ['GK', 'LB', 'RB', 'CB', 'DM', 'CM', 'AM', 'LW', 'RW', 'ST'];
+export const positionOrder = (position: PlayerPosition) => tacticalPositionOrder.indexOf(position);
 export const positionNames: Record<PlayerPosition, string> = {
   GK: 'Goleiro', CB: 'Zagueiro', LB: 'Lateral esquerdo', RB: 'Lateral direito', DM: 'Volante', CM: 'Meia central',
   AM: 'Meia ofensivo', LW: 'Ponta esquerda', RW: 'Ponta direita', ST: 'Atacante',

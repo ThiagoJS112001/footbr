@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { autoPickLineup, playRound, simulateSeason, getTopScorers, getPlayerSeasonStats } from '../src/engine/league';
 import { startRound, finishRound, stepRound } from '../src/engine/league/season';
-import { askingPrice, buyPlayer, createCareer, nextSeason, renewContract, sellPlayer, settleRound } from '../src/engine/career/career';
+import { askingPrice, buyPlayer, createCareer, nextSeason, sellPlayer, settleRound } from '../src/engine/career/career';
+import { negotiateRenewal, renewalDemand, renewalStatus } from '../src/engine/career/renewals';
+import { matchRatings } from '../src/engine/career/ratings';
+import { finePlayer } from '../src/engine/career/discipline';
+import { createSystems } from '../src/engine/career/bootstrap';
 import { changeMatchStyle, finishMatch, matchSnapshot, startMatch, stepMatch, substitutePlayer } from '../src/engine/simulation/simulateMatch';
 import { simulationConfig } from '../src/engine/simulation/config';
 import { decodeSave, encodeSave } from '../src/engine/save/save';
@@ -93,12 +97,70 @@ describe('carreira e decisões de jogo', () => {
     const next = sellPlayer(c, team.squad[0].id, 1);
     expect(next.league.teams.find((t) => t.id === team.id)!.squad).toHaveLength(24);
     expect(next.finances.at(-1)!.amount).toBeGreaterThan(0);
-    const expiring = team.squad.find((p) => p.contract!.yearsRemaining < 3)!;
-    const renewed = renewContract(c, expiring.id, 1);
+    const expiring = team.squad.find((p) => p.contract!.yearsRemaining === 1)!;
+    const terms = renewalDemand(expiring);
+    const renewed = negotiateRenewal(c, expiring.id, terms).career;
     const player = renewed.league.teams.find((t) => t.id === team.id)!.squad.find((p) => p.id === expiring.id)!;
-    expect(player.contract!.yearsRemaining).toBe(3);
-    expect(player.contract!.salary).toBeGreaterThan(expiring.contract!.salary);
-    expect(renewed.finances.at(-1)!.amount).toBe(-player.contract!.salary);
+    expect(player.contract).toEqual({ yearsRemaining: terms.years + 1, salary: terms.salary });
+    expect(renewed.finances.at(-1)!.amount).toBe(-terms.bonus);
+    expect(renewed.league.teams.find((t) => t.id === team.id)!.payroll).toBe(team.payroll - expiring.contract!.salary + terms.salary);
+  });
+
+  it('mantém a contraproposta no save e bloqueia por duas rodadas após a terceira oferta ou recusa do clube', () => {
+    let career = setup();
+    career.systems = createSystems(career);
+    const player = career.league.teams[19].squad.find((p) => p.contract?.yearsRemaining === 1)!;
+    const demand = renewalDemand(player);
+    const terms = { ...demand, bonus: 0 };
+    career = negotiateRenewal(career, player.id, terms).career;
+    career = decodeSave(encodeSave({ career, lastRound: null, progress: null })).career;
+    expect(renewalStatus(career, player.id)).toMatchObject({ status: 'counter', attempts: 1, demand });
+    expect(renewalStatus(negotiateRenewal(career, player.id, null).career, player.id)).toMatchObject({ status: 'blocked', availableAfterRound: 2 });
+    career = negotiateRenewal(career, player.id, terms).career;
+    career = negotiateRenewal(career, player.id, terms).career;
+    expect(() => negotiateRenewal(career, player.id, demand)).toThrow('duas semanas');
+    career = { ...career, league: playRound(career.league, 42) };
+    expect(() => negotiateRenewal(career, player.id, demand)).toThrow('duas semanas');
+    career = { ...career, league: playRound(career.league, 42) };
+    expect(renewalStatus(career, player.id)).toBeUndefined();
+    expect(renewalDemand({ ...player, age: 35, overall: 85 }).salary).toBeLessThan(renewalDemand({ ...player, age: 28, overall: 85 }).salary);
+    expect(renewalDemand({ ...player, age: 28, overall: 85 }, 8).salary).toBeGreaterThan(renewalDemand({ ...player, age: 28, overall: 75 }, 6).salary);
+  });
+
+  it('atribui notas a quem entrou em campo a partir dos minutos e dos lances registrados', () => {
+    const [home, away] = setup().league.teams;
+    const homeLineup = autoPickLineup(home);
+    const awayLineup = autoPickLineup(away);
+    const [keeper, scorer, assister, warned, sentOff] = homeLineup.starterIds;
+    const [substitute, unused] = homeLineup.substituteIds;
+    const match = setup().league.schedule[0].matches[0];
+    const ratings = matchRatings({ ...match, status: 'finished', homeTeamId: home.id, awayTeamId: away.id, homeLineup, awayLineup, score: { home: 1, away: 0 },
+      events: [
+        { type: 'goal', minute: 20, teamId: home.id, playerId: scorer, assistPlayerId: assister },
+        { type: 'card', minute: 40, teamId: home.id, playerId: warned, card: 'yellow' },
+        { type: 'card', minute: 50, teamId: home.id, playerId: sentOff, card: 'red' },
+        { type: 'substitution', minute: 60, teamId: home.id, playerOutId: keeper, playerInId: substitute },
+      ] });
+    expect(ratings.find((p) => p.playerId === keeper)?.minutes).toBe(60);
+    expect(ratings.find((p) => p.playerId === substitute)).toMatchObject({ minutes: 30, rating: 6 });
+    expect(ratings.find((p) => p.playerId === scorer)!.rating).toBeGreaterThan(ratings.find((p) => p.playerId === assister)!.rating);
+    expect(ratings.find((p) => p.playerId === warned)!.rating).toBeLessThan(ratings.find((p) => p.playerId === keeper)!.rating);
+    expect(ratings.find((p) => p.playerId === sentOff)!.rating).toBeLessThan(ratings.find((p) => p.playerId === warned)!.rating);
+    expect(ratings.some((p) => p.playerId === unused)).toBe(false);
+  });
+
+  it('credita multa disciplinar uma só vez durante a suspensão por vermelho grave', () => {
+    const career = setup();
+    career.systems = createSystems(career);
+    const team = career.league.teams[19];
+    const player = team.squad[0];
+    player.discipline = { yellowCards: 0, suspendedMatches: 4, redSuspension: { games: 4, teamId: team.id, fined: false } };
+    const fined = finePlayer(career, player.id, 1);
+    const amount = Math.floor(player.contract!.salary / 4);
+    expect(fined.league.teams[19].budget).toBe(team.budget + amount);
+    expect(fined.finances.at(-1)?.amount).toBe(amount);
+    const restored = decodeSave(encodeSave({ career: fined, lastRound: null, progress: null })).career;
+    expect(() => finePlayer(restored, player.id, 1)).toThrow('não tem multa');
   });
 
   it('fecha contas por rodada e aplica juros sem perder a relação saldo/extrato', () => {

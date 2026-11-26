@@ -38,6 +38,7 @@ export interface PlayerContract {
 export interface PlayerDiscipline {
   yellowCards: number;
   suspendedMatches: number;
+  redSuspension?: { games: number; teamId: string; fined: boolean };
 }
 
 export interface Player {

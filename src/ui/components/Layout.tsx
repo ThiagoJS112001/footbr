@@ -3,7 +3,7 @@ import type { League, Team } from '../../engine/models';
 import { careerOf, useGameStore } from '../store/gameStore';
 import { nextCupEvent } from '../../engine/career/progression';
 import { seasonComplete } from '../../engine/career/progression';
-import type { GameScreen } from '../store/gameStore';
+import type { GameScreen, Screen } from '../store/gameStore';
 import { ClubBadge } from './ClubBadge';
 import { Icon } from './Icon';
 import { padRound, seasonDate } from '../utils';
@@ -20,6 +20,8 @@ const navigation: { screen: GameScreen; label: string }[] = [
   { screen: 'market', label: 'Mercado' }, { screen: 'finances', label: 'Finanças' },
   { screen: 'board', label: 'Diretoria' },
 ];
+
+const stadiumScreens = new Set<Screen>(['dashboard', 'squad', 'lineup', 'standings', 'academy', 'calendar', 'cup', 'market', 'finances', 'board']);
 
 export function Layout({ league, team, children }: { league: League; team: Team; children: ReactNode }) {
   const state = useGameStore();
@@ -46,7 +48,7 @@ export function Layout({ league, team, children }: { league: League; team: Team;
         <div className={styles.topbarClub}><ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /><div><strong>{team.name}</strong><span><Icon name="user" size={14} />Você · Treinador</span></div></div>
         <div className={styles.topbarActions}><div className={styles.dateBlock}><Icon name="calendar" size={25} /><div><strong>{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : !!live || complete, state.source?.seasons[0]?.year)}</strong><span>{complete ? 'Temporada encerrada' : cup ? `${cupEvent?.cup.name} · ${cup.name}` : `Rodada ${padRound(currentRound)} de ${league.schedule.length}`} · Temporada {padRound(season)}</span></div></div><button className={styles.advanceButton} disabled={!!live || isAdvancing || complete && !dismissed} title={dismissed ? 'Conferir propostas de emprego' : 'Preparar a próxima partida'} onClick={advance}><Icon name="match" size={21} /><span>Avançar</span></button></div>
       </header>}
-      <main id="main-content" className={`${styles.content} ${['dashboard', 'squad', 'lineup', 'standings', 'academy'].includes(screen) ? styles.dashboardContent : ''}`} key={screen}>{error && <p role="alert" className={styles.error}>{error}</p>}{message && <p className={styles.notice}>{message}</p>}{dismissed && screen !== 'board' && <p role="alert" className={styles.error}>Seu vínculo com o clube foi encerrado. <button className={styles.textButton} onClick={() => navigate('board')}>Ver propostas de emprego</button></p>}{children}</main>
+      <main id="main-content" className={`${styles.content} ${stadiumScreens.has(screen) ? styles.dashboardContent : ''}`} key={screen}>{error && <p role="alert" className={styles.error}>{error}</p>}{message && <p className={styles.notice}>{message}</p>}{dismissed && screen !== 'board' && <p role="alert" className={styles.error}>Seu vínculo com o clube foi encerrado. <button className={styles.textButton} onClick={() => navigate('board')}>Ver propostas de emprego</button></p>}{children}</main>
       <details className={styles.savePanel}><summary><Icon name="save" size={16} />Salvar e carregar<span>{saveStatus || 'Gerenciar arquivos'}</span></summary><SaveControls compact /></details>
       <footer className={styles.workspaceFooter}><span>FOOTBR · MANAGER DE FUTEBOL{state.source ? ` · Base ${state.source.providers.includes('demo') ? 'de demonstração fictícia' : 'importada'} · Atributos e finanças simulados` : ''}</span><span>Temporada {padRound(season)} · {saveStatus}</span></footer>
     </div>

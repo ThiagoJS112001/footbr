@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/PageHeader';
 import { Panel } from '../components/Panel';
 import { StandingsTable } from '../components/StandingsTable';
+import { MatchRatingsDialog } from '../components/MatchRatingsDialog';
 import { careerOf, useGameStore } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { padRound, seasonDate } from '../utils';
@@ -25,12 +26,19 @@ export function Calendar({ league, selectedTeamId, currentRound }: { league: Lea
   const career = careerOf(state);
   const [competitionId, setCompetitionId] = useState(state.screen === 'cup' ? career.systems.cup.id : 'all');
   const [view, setView] = useState<(typeof calendarViews)[number]['label']>(state.screen === 'cup' ? 'Por rodada' : 'Próximos jogos');
+  const [ratedMatchId, setRatedMatchId] = useState<string | null>(null);
+  const [resultLimit, setResultLimit] = useState(10);
   const stateCup = managedCup(career, 'state');
   const cups = allCups(career).filter((cup) => !career.systems.stateCups?.includes(cup) || cup === stateCup);
   const selectedCup = cups.find((cup) => cup.id === competitionId);
   const summaryCup = selectedCup ?? career.systems.cup;
   const cupRound = pendingCupRound(career, summaryCup);
   const teams = new Map(competitionTeams(career).map((team) => [team.id, team]));
+  const playerNames = ratedMatchId ? new Map([
+    ...career.systems.playerHistory.map((player) => [player.playerId, player.playerName] as const),
+    ...career.systems.transfers.map((player) => [player.playerId, player.playerName] as const),
+    ...[...teams.values()].flatMap((team) => team.squad).concat(career.freeAgents).map((player) => [player.id, player.name] as const),
+  ]) : undefined;
   const isOwn = (match: Match) => match.homeTeamId === selectedTeamId || match.awayTeamId === selectedTeamId;
   const visible = (match: Match) => !onlyMine || isOwn(match);
   const leagueRounds = league.schedule.map((round) => ({
@@ -53,17 +61,26 @@ export function Calendar({ league, selectedTeamId, currentRound }: { league: Lea
   const renderMatch = (match: Match) => {
     const home = teams.get(match.homeTeamId);
     const away = teams.get(match.awayTeamId);
-    return <div className={views.calendarMatch}>
+    const matchup = <>
       <span className={styles.calendarHome}>{home?.name}<ClubBadge name={home?.name ?? 'A definir'} image={home?.identity?.facts.image} /></span>
       <strong className={styles.calendarScore} aria-label={match.score ? `Placar ${match.score.home} a ${match.score.away}` : 'Jogo a disputar'}>
         {match.score ? `${match.score.home} – ${match.score.away}` : '×'}{match.forfeitTeamIds?.length ? <small>W.O.</small> : null}
         {match.penalties && <small>Pên. {match.penalties.home}–{match.penalties.away}</small>}
+        {match.status === 'finished' && <small className={views.fixtureRatingLink}>Ver notas</small>}
       </strong>
       <span className={styles.calendarAway}><ClubBadge name={away?.name ?? 'A definir'} image={away?.identity?.facts.image} />{away?.name}</span>
-    </div>;
+    </>;
+    if (match.status !== 'finished') return <div className={views.calendarMatch}>{matchup}</div>;
+    return <button type="button" className={`${views.calendarMatch} ${views.ratedFixture}`} aria-haspopup="dialog"
+      aria-label={`Notas da partida: ${home?.name} × ${away?.name}`} onClick={() => setRatedMatchId(match.id)}>
+      {matchup}
+    </button>;
   };
 
+  const ratedMatch = ratedMatchId ? rounds.flatMap((round) => round.matches).find((match) => match.id === ratedMatchId) : undefined;
   return <>
+    {ratedMatch && playerNames && <MatchRatingsDialog key={ratedMatch.id} match={ratedMatch} clubId={selectedTeamId}
+      teams={teams} playerNames={playerNames} onClose={() => setRatedMatchId(null)} />}
     <PageHeader eyebrow="AGENDA DE JOGOS" title="Calendário" description="Acompanhe os próximos jogos, resultados e o andamento das competições." />
     <div className={views.calendarControls}>
       <label className={styles.filterLabel}>Competição
@@ -98,13 +115,15 @@ export function Calendar({ league, selectedTeamId, currentRound }: { league: Lea
             </details>;
           })}</div>
         ) : <Panel title={view} icon={results ? 'trend' : 'calendar'} className={views.surface}>
-          {agenda.length ? <ul className={views.calendarAgenda}>{agenda.slice(0, 10).map(({ match, round }) => (
+          {agenda.length ? <ul className={views.calendarAgenda}>{agenda.slice(0, results ? resultLimit : 10).map(({ match, round }) => (
             <li key={`${round.key}-${match.id}`}>
               <time>{seasonDate(state.season, round.week, round.dayOffset, state.source?.seasons[0]?.year)}</time>
               <div className={views.calendarCompetition}><span className={round.cup ? styles.subtleTag : styles.pill}><Icon name="cup" size={14} />{round.name}</span><small>{round.title}</small></div>
               {renderMatch(match)}
             </li>
           ))}</ul> : <p className={views.empty}>{results ? 'Nenhum resultado para esta seleção.' : 'Nenhum jogo a disputar nesta seleção.'}</p>}
+          {results && agenda.length > resultLimit && <div className={styles.controls}><button className={styles.secondaryButton}
+            onClick={() => setResultLimit(resultLimit + 10)}>Mostrar mais resultados</button></div>}
         </Panel>}
       </div>
       <aside className={views.stack}>

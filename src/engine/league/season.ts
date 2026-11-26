@@ -59,7 +59,7 @@ export function minutesPlayed(match: Match, teamId: string): Map<string, number>
   return minutes;
 }
 
-function updateTeam(team: Team, match: Match | undefined, rng: Rng, days = config.daysBetweenRounds, recovery = config.fitnessRecovery): Team {
+function updateTeam(team: Team, match: Match | undefined, rng: Rng, seed: number, days = config.daysBetweenRounds, recovery = config.fitnessRecovery): Team {
   const minutes = match ? minutesPlayed(match, team.id) : new Map<string, number>();
   const events = match?.events.filter((event) => event.teamId === team.id) ?? [];
   const byPlayer = new Map<string, typeof events>();
@@ -77,6 +77,7 @@ function updateTeam(team: Team, match: Match | undefined, rng: Rng, days = confi
       let yellowCards = player.discipline.yellowCards;
       // Somente uma partida do clube pode cumprir suspensão; folga não conta.
       let suspendedMatches = Math.max(0, player.discipline.suspendedMatches - (match ? 1 : 0));
+      let redSuspension = suspendedMatches ? player.discipline.redSuspension : undefined;
       for (const event of byPlayer.get(player.id) ?? []) {
         if (event.type === 'injury') injury = {
           description: event.description, remainingDays: randomInt(rng, config.injuryMinDays, config.injuryMaxDays),
@@ -88,11 +89,17 @@ function updateTeam(team: Team, match: Match | undefined, rng: Rng, days = confi
             suspendedMatches = Math.max(suspendedMatches, config.suspensionMatches);
           }
         }
-        if (event.type === 'card' && event.card === 'red') suspendedMatches = Math.max(suspendedMatches, config.suspensionMatches);
+        if (event.type === 'card' && event.card === 'red') {
+          const key = `${match!.id}:${player.id}:${event.minute}`;
+          const drawSeed = Array.from(key).reduce((hash, character) => Math.imul(hash ^ character.charCodeAt(0), 16777619), seed ^ 2166136261);
+          const games = randomInt(createRng(drawSeed >>> 0), 2, 5);
+          suspendedMatches = Math.max(suspendedMatches, games);
+          redSuspension = { games, teamId: team.id, fined: false };
+        }
       }
       const fatigue = matchFatigue(player, minutes.get(player.id) ?? 0, config.fullMatchFatigue);
       return {
-        ...player, injury, discipline: { yellowCards, suspendedMatches },
+        ...player, injury, discipline: { yellowCards, suspendedMatches, ...(redSuspension ? { redSuspension } : {}) },
         fitness: Math.max(config.minFitness, Math.min(config.maxFitness, player.fitness - fatigue + recovery)),
       };
     }),
@@ -162,7 +169,7 @@ export function finishRound(league: League, session: RoundSession, effects: { da
   const matchByTeam = new Map(matches.flatMap((match) => [[match.homeTeamId, match], [match.awayTeamId, match]] as const));
   const next: League = {
     ...league,
-    teams: league.teams.map((team) => effects.onlyParticipants && !matchByTeam.has(team.id) ? team : updateTeam(team, matchByTeam.get(team.id), rng, effects.days, effects.recovery)),
+    teams: league.teams.map((team) => effects.onlyParticipants && !matchByTeam.has(team.id) ? team : updateTeam(team, matchByTeam.get(team.id), rng, session.seed, effects.days, effects.recovery)),
     schedule: league.schedule.map((entry, index) => index === roundIndex ? { ...entry, matches: fixtures.map((f) => matches.find((m) => m.id === f.id)!) } : entry),
     standings: [],
   };

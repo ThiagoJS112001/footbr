@@ -23,6 +23,12 @@ const marketTabs = [
   { label: 'Minhas negociações', icon: 'market' },
   { label: 'Propostas recebidas', icon: 'mail' },
 ] as const;
+const ageRanges = [
+  { label: '18–25', min: 18, max: 25 },
+  { label: '26–30', min: 26, max: 30 },
+  { label: '31–34', min: 31, max: 34 },
+  { label: '35+', min: 35, max: Infinity },
+];
 
 function OfferCounter({ offer, open, onSubmit }: { offer: TransferOffer; open: boolean; onSubmit: () => void }) {
   const counter = useGameStore((s) => s.counter);
@@ -108,7 +114,7 @@ export function Market({ team }: { team: Team }) {
   const allPlayers = [...clubs.flatMap((t) => t.squad), ...freeAgents];
   const deal = useUiStore((s) => s.marketDealType);
   const negotiationRef = useRef<HTMLElement>(null);
-  const { marketPosition: position, marketSearch: search, marketSource: source, marketSelected: selected, marketOffer: offer, marketSalary: salary, marketYears: years } = useUiStore();
+  const { marketPosition: position, marketSearch: search, marketSource: source, marketSelected: selected, marketOffer: offer, marketSalary: salary, marketYears: years, marketAge: age, marketClub: clubId } = useUiStore();
   const [tab, setTab] = useState<(typeof marketTabs)[number]['label']>(selected ? 'Minhas negociações' : 'Buscar jogadores');
   const setPosition = (value: PlayerPosition | 'all') => useUiStore.setState({ marketPosition: value });
   const setSearch = (value: string) => useUiStore.setState({ marketSearch: value });
@@ -124,7 +130,14 @@ export function Market({ team }: { team: Team }) {
   }, [selected, tab]);
   const open = isWindowOpen(currentRound);
   const candidates = source === 'own' ? team.squad : source === 'free' ? freeAgents : source === 'watch' ? allPlayers.filter((p) => systems.watchlist.some((w) => w.playerId === p.id)) : source === 'loans' ? allPlayers.filter((p) => loanAvailability(career, p) === null) : clubs.filter((t) => t.id !== team.id).flatMap((t) => t.squad);
-  const rows = candidates.filter((p) => (position === 'all' || p.primaryPosition === position) && p.name.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const query = search.trim().toLocaleLowerCase('pt-BR');
+  const ageRange = ageRanges.find((range) => range.label === age);
+  const hasFilters = source !== 'market' || position !== 'all' || !!query || !!ageRange || clubId !== 'all';
+  const rows = hasFilters ? candidates.filter((p) => (position === 'all' || p.primaryPosition === position)
+    && (!ageRange || (p.age >= ageRange.min && p.age <= ageRange.max))
+    && (clubId === 'all' || p.currentTeamId === clubId) && p.name.toLocaleLowerCase('pt-BR').includes(query)) : [];
+  const candidateClubs = new Set(candidates.map((p) => p.currentTeamId));
+  const clubOptions = clubs.filter((club) => candidateClubs.has(club.id)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   const player = candidates.find((p) => p.id === selected);
   const choose = (p: Player) => { setSelected(p.id); setOffer(p.currentTeamId ? askingPrice(p) : 0); setSalary(signingInterest(p, team, clubs.find((t) => t.id === p.currentTeamId)).salary); useUiStore.setState({ marketDealType: source === 'loans' ? 'loan' : 'buy' }); setTab('Minhas negociações'); };
   const ownPlayer = player?.currentTeamId === team.id;
@@ -155,20 +168,25 @@ export function Market({ team }: { team: Team }) {
     {watchAlerts.length > 0 && <Panel title="Novidades dos observados" icon="market"><ul className={styles.compactList}>{watchAlerts.map((a) => <li key={a.id}><span>{a.text}<small>Comparação com o momento em que entrou na lista.</small></span><button className={styles.textButton} onClick={() => state.watchPlayer(a.id)}>Deixar de observar</button></li>)}</ul></Panel>}
     <section className={styles.panel}>
       <div className={styles.controls}>
-        <label className={styles.filterLabel}>Lista<select value={source} onChange={(e) => { setSource(e.target.value); setSelected(null); }}><option value="market">Jogadores de outros clubes</option><option value="own">Meu elenco · vender</option><option value="free">Sem clube</option><option value="watch">Observados ({systems.watchlist.length})</option><option value="loans">Disponíveis por empréstimo</option></select></label>
+        <label className={styles.filterLabel}>Lista<select value={source} onChange={(e) => { setSource(e.target.value); setSelected(null); useUiStore.setState({ marketClub: 'all' }); }}><option value="market">Jogadores de outros clubes</option><option value="own">Meu elenco · vender</option><option value="free">Sem clube</option><option value="watch">Observados ({systems.watchlist.length})</option><option value="loans">Disponíveis por empréstimo</option></select></label>
         <label className={styles.filterLabel}>Posição<select value={position} onChange={(e) => setPosition(e.target.value as PlayerPosition | 'all')}><option value="all">Todas</option>{Object.entries(positionLabels).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select></label>
+        <label className={styles.filterLabel}>Faixa etária<select value={age} onChange={(e) => useUiStore.setState({ marketAge: e.target.value })}><option value="all">Todas</option>{ageRanges.map(({ label }) => <option key={label}>{label}</option>)}</select></label>
+        <label className={styles.filterLabel}>Clube<select value={clubId} onChange={(e) => useUiStore.setState({ marketClub: e.target.value })}><option value="all">Todos</option>{clubOptions.map((club) => <option key={club.id} value={club.id}>{club.name}</option>)}</select></label>
         <label className={styles.filterLabel}>Buscar jogador<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nome do jogador" /></label>
         <button className={styles.secondaryButton} onClick={() => navigate('compare')}>Comparar jogadores</button>
       </div>
-      <DataTable key={`${source}-${position}-${search}`} caption="Jogadores no mercado" pageSize={20} rows={rows} getRowId={(p) => p.id} initialSort={{ id: 'price', direction: 'asc' }} columns={[
+      {!hasFilters ? <p className={styles.tableNote}>Use um filtro ou digite um nome para buscar jogadores.</p> : <DataTable key={`${source}-${position}-${age}-${clubId}-${search}`} caption="Jogadores no mercado" pageSize={20} rows={rows} getRowId={(p) => p.id} initialSort={{ id: 'price', direction: 'asc' }} columns={[
         { id: 'name', label: 'Jogador', sortValue: (p) => p.name, render: (p) => <button className={styles.textButton} onClick={() => choose(p)}>{p.name}</button> },
         { id: 'position', label: 'Pos.', render: (p) => positionLabels[p.primaryPosition] },
         { id: 'age', label: 'Idade', sortValue: (p) => p.age, render: (p) => p.age },
         { id: 'strength', label: 'Força', sortValue: (p) => p.overall, render: (p) => <span className={styles.rating}>{p.overall}</span> },
         { id: 'trait', label: 'Perfil', render: (p) => <PlayerTraitBadge player={p} /> },
         { id: 'price', label: source === 'own' ? 'Oferta de venda' : 'Preço pedido', sortValue: (p) => p.currentTeamId ? source === 'own' ? p.marketValue * 0.85 : askingPrice(p) : 0, render: (p) => currency(p.currentTeamId ? source === 'own' ? Math.round(p.marketValue * 0.85 / 1000) * 1000 : askingPrice(p) : 0) },
-        { id: 'club', label: 'Clube', render: (p) => clubs.find((t) => t.id === p.currentTeamId)?.name ?? 'Sem clube' },
-      ]} />
+        { id: 'club', label: 'Clube', render: (p) => {
+          const club = clubs.find((t) => t.id === p.currentTeamId);
+          return club ? <span className={styles.tableClub}><ClubBadge name={club.name} image={club.identity?.facts.image} />{club.name}</span> : 'Sem clube';
+        } },
+      ]} />}
     </section>
     </>}
     {tab === 'Minhas negociações' && <div className={views.stack}>

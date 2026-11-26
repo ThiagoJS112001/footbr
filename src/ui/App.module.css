@@ -290,7 +290,6 @@
 .matchStats { display: grid; gap: 13px; padding: 12px 24px 26px; }
 .matchStats > div { display: grid; grid-template-columns: 1fr 2fr 1fr; text-align: center; font-size: 12px; }
 .matchStats span { color: var(--muted); }
-.balanceChart { width: 100%; display: block; max-height: 220px; padding-top: 15px; }
 .historyItem { border-top: 1px solid var(--line-soft); padding: 20px; font-size: 12px; line-height: 1.9; color: var(--muted); }
 .historyItem h3 { font-size: 14px; color: var(--text); margin-bottom: 8px; }
 .roundList { display: grid; gap: 12px; }

@@ -55,7 +55,7 @@ export function selectReserves(players: readonly Player[]): string[] {
 }
 
 /** Valida também a distribuição por posição, antes de permitir entrar em campo. */
-export function validateLineup(team: Team, lineup: Lineup): void {
+export function validateLineup(team: Team, lineup: Lineup, allowUnavailable = false): void {
   const slots = formationSlots(lineup.tactic.formation);
   const ids = [...lineup.starterIds, ...lineup.substituteIds];
   if (lineup.starterIds.length !== 11 || new Set(ids).size !== ids.length) throw new Error('Selecione 11 titulares diferentes.');
@@ -64,7 +64,7 @@ export function validateLineup(team: Team, lineup: Lineup): void {
   const occupied = lineup.starterIds.map((id) => {
     const player = team.squad.find((p) => p.id === id);
     const position = lineup.positions?.[id] ?? player?.primaryPosition;
-    if (!player || player.injury || player.discipline.suspendedMatches > 0) throw new Error('Há um titular indisponível. Revise a escalação.');
+    if (!player || !allowUnavailable && (player.injury || player.discipline.suspendedMatches > 0)) throw new Error('Há um titular indisponível. Revise a escalação.');
     if (position !== player.primaryPosition && position !== player.secondaryPosition) throw new Error('Jogador fora de sua posição.');
     return position;
   });
@@ -75,7 +75,7 @@ export function validateLineup(team: Team, lineup: Lineup): void {
   }
   for (const id of lineup.substituteIds) {
     const player = team.squad.find((p) => p.id === id);
-    if (!player || player.injury || player.discipline.suspendedMatches > 0) throw new Error('Há um reserva indisponível.');
+    if (!player || !allowUnavailable && (player.injury || player.discipline.suspendedMatches > 0)) throw new Error('Há um reserva indisponível.');
   }
 }
 

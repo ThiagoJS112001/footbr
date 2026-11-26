@@ -37,12 +37,18 @@ export function nextManagedMatch(career: Career) {
 export function upcomingDecision(career: Career): string | null {
   if (career.systems.board.status === 'dismissed') return 'Escolha um novo clube na Diretoria.';
   if (seasonComplete(career)) return 'Temporada concluída.';
+  if (hasLineupAbsences(career)) return 'Revise os desfalques na escalação antes da próxima partida.';
   if (career.systems.offers.some((offer) => offer.status === 'pending')) return 'Confira as propostas pendentes no Mercado.';
   const { cup, round, opponentId } = nextManagedMatch(career);
   if (opponentId && rivalryBetween(career, career.selectedTeamId!, opponentId)) return 'Clássico à frente. Prepare a escalação.';
   if (cup) return `Próximo compromisso pela ${cup.cup.name}. Prepare a escalação.`;
   if (round && boardReviewDue(career, round.round)) return `A Diretoria avalia seu trabalho após a rodada ${round.round}.`;
   return null;
+}
+export function hasLineupAbsences(career: Career): boolean {
+  const { lineup } = career;
+  return !!lineup && ownTeam(career).squad.some((p) => (p.injury || p.discipline.suspendedMatches)
+    && (lineup.starterIds.includes(p.id) || lineup.substituteIds.includes(p.id)));
 }
 export function repairLineup(career: Career, preferred?: Lineup | null): Career {
   try {
@@ -91,12 +97,12 @@ export function finishCareerEvent(career: Career, competition: Competition, sess
   const title = stage ? (cup!.weeks ? cup!.name + ' · ' + stage.name : stage.name) : `Rodada ${session.round}`;
   const summary = { competition, round: session.round, teamId: team.id, title, result, position: row.position, positionChange: previous.position - row.position, points: row.points,
     moneyChange: team.budget - beforeBalance, absences: team.squad.filter((p) => p.injury || p.discipline.suspendedMatches).map((p) => `${p.name}: ${p.injury ? `${p.injury.remainingDays} dias de lesão` : `${p.discipline.suspendedMatches} jogo(s) de suspensão`}`), notes: match ? matchInsights(match, team.id) : [] };
-  return repairLineup({ ...next, systems: { ...next.systems, lastSummary: summary }, news: [`${title}: ${result}`, ...next.news].slice(0, 20) }, career.lineup);
+  return { ...next, lineup: career.lineup, systems: { ...next.systems, lastSummary: summary }, news: [`${title}: ${result}`, ...next.news].slice(0, 20) };
 }
 export function simulateCareerEvent(career: Career, lineup: Lineup | null): { career: Career; competition: Competition; round: number } {
   const { competition, session } = startCareerEvent(career, lineup);
   const finished = { ...session, games: session.games.map(finishMatch) };
-  return { career: finishCareerEvent(career, competition, finished), competition, round: finished.round };
+  return { career: finishCareerEvent({ ...career, lineup }, competition, finished), competition, round: finished.round };
 }
 export function financeForecast(career: Career) {
   const team = ownTeam(career);

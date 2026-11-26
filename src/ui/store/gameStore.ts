@@ -7,7 +7,10 @@ import type { RoundSession } from '../../engine/league/season';
 import { changeMatchStyle, finishMatch, substitutePlayer } from '../../engine/simulation/simulateMatch';
 import type { League, Tactic } from '../../engine/models';
 import type { PlayingStyle } from '../../engine/models/Tactic';
-import { buyPlayer, createCareer, nextSeason, renewContract, seasonSeed, sellPlayer } from '../../engine/career/career';
+import { buyPlayer, createCareer, nextSeason, seasonSeed, sellPlayer } from '../../engine/career/career';
+import { negotiateRenewal } from '../../engine/career/renewals';
+import { finePlayer } from '../../engine/career/discipline';
+import type { RenewalTerms } from '../../engine/career/types';
 import type { Career } from '../../engine/career/career';
 import { decodeSave, encodeSave } from '../../engine/save/save';
 import type { MatchCommand, SaveData } from '../../engine/save/save';
@@ -75,7 +78,8 @@ interface GameActions {
   substitute: (outId: string, inId: string) => void;
   buy: (id: string, offer: number, salary: number, years: number) => void;
   sell: (id: string) => void;
-  renew: (id: string) => void;
+  renew: (id: string, terms: RenewalTerms | null) => void;
+  fine: (id: string) => void;
   respondOffer: (id: string, accept: boolean) => void;
   assessYouth: (id: string) => void;
   promoteYouth: (id: string) => void;
@@ -151,9 +155,14 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       const before = careerOf(get());
       let next = operation(before);
       const previousIds = new Set(before.league.teams.find((t) => t.id === before.selectedTeamId)!.squad.map((p) => p.id));
-      next = repairLineup(next, next.lineup ?? before.lineup);
+      const squad = next.league.teams.find((t) => t.id === next.selectedTeamId)!.squad;
+      const rosterIds = new Set(squad.map((p) => p.id));
+      const draft = next.lineup ?? before.lineup;
+      next = draft && draft.starterIds.every((id) => rosterIds.has(id))
+        ? { ...next, lineup: { ...draft, substituteIds: draft.substituteIds.filter((id) => rosterIds.has(id)) } }
+        : repairLineup(next, draft);
       if (next.lineup) {
-        const newcomers = next.league.teams.find((t) => t.id === next.selectedTeamId)!.squad.filter((p) => !previousIds.has(p.id) && !p.injury && !p.discipline.suspendedMatches && !next.lineup!.starterIds.includes(p.id));
+        const newcomers = squad.filter((p) => !previousIds.has(p.id) && !p.injury && !p.discipline.suspendedMatches && !next.lineup!.starterIds.includes(p.id));
         next.lineup = { ...next.lineup, substituteIds: [...new Set([...next.lineup.substituteIds, ...newcomers.map((p) => p.id)])].slice(0, maxReserves) };
       }
       set({ ...next, error: null, message }); autoSave();
@@ -217,7 +226,10 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
     },
     autoLineup: () => {
       try { ensureIdle(); set({ lineup: autoPickLineup(get().league!.teams.find((t) => t.id === get().selectedTeamId)!, undefined, true), error: null }); autoSave(); }
-      catch (error) { fail(error); }
+      catch (error) {
+        if (error instanceof LineupUnavailableError) { set({ lineup: null, error: null }); autoSave(); }
+        else fail(error);
+      }
     },
     updateTactic: (patch) => {
       try {
@@ -246,15 +258,15 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         if (!player || !slots[slot] || player.injury || player.discipline.suspendedMatches || (player.primaryPosition !== slots[slot] && player.secondaryPosition !== slots[slot])) throw new Error('Jogador indisponível para essa posição.');
         const previous = lineup.starterIds.indexOf(playerId);
         const displacedId = lineup.starterIds[slot];
+        const displaced = team.squad.find((p) => p.id === displacedId)!;
         if (previous !== -1 && previous !== slot) {
-          const displaced = team.squad.find((p) => p.id === lineup.starterIds[slot])!;
-          if (displaced.primaryPosition !== slots[previous] && displaced.secondaryPosition !== slots[previous]) throw new Error('Esse jogador já é titular em outra posição.');
+          if (displaced.injury || displaced.discipline.suspendedMatches || (displaced.primaryPosition !== slots[previous] && displaced.secondaryPosition !== slots[previous])) throw new Error('Esse jogador já é titular em outra posição.');
           lineup.starterIds[previous] = displaced.id;
         }
         lineup.starterIds[slot] = playerId;
         lineup.positions = Object.fromEntries(lineup.starterIds.map((id, i) => [id, slots[i]]));
-        lineup.substituteIds = lineup.substituteIds.map((id) => id === playerId ? displacedId : id);
-        validateLineup(team, lineup);
+        lineup.substituteIds = lineup.substituteIds.flatMap((id) => id !== playerId ? [id] : displaced.injury || displaced.discipline.suspendedMatches ? [] : [displacedId]);
+        validateLineup(team, lineup, true);
         set({ lineup, error: null }); autoSave();
       } catch (error) { fail(error); }
     },
@@ -265,16 +277,16 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         if (!lineup) throw new Error('Escale os titulares antes de escolher os reservas.');
         const team = get().league!.teams.find((t) => t.id === get().selectedTeamId)!;
         const player = team.squad.find((p) => p.id === playerId);
-        if (!player || player.injury || player.discipline.suspendedMatches || lineup.starterIds.includes(playerId)) throw new Error('Jogador indisponível para o banco.');
+        const alreadyOnBench = lineup.substituteIds.includes(playerId);
+        if (!player || lineup.starterIds.includes(playerId) || (!alreadyOnBench && (player.injury || player.discipline.suspendedMatches))) throw new Error('Jogador indisponível para o banco.');
         if (replacedId) {
           if (!lineup.substituteIds.includes(replacedId) || lineup.substituteIds.includes(playerId)) throw new Error('Escolha um reserva para a troca.');
           lineup.substituteIds = lineup.substituteIds.map((id) => id === replacedId ? playerId : id);
         } else {
-          const alreadyOnBench = lineup.substituteIds.includes(playerId);
           if (!alreadyOnBench && lineup.substituteIds.length >= maxReserves) throw new Error('O banco está cheio. Troque com um dos reservas.');
           lineup.substituteIds = alreadyOnBench ? lineup.substituteIds.filter((id) => id !== playerId) : [...lineup.substituteIds, playerId];
         }
-        validateLineup(team, lineup);
+        validateLineup(team, lineup, true);
         set({ lineup, error: null }); autoSave();
       } catch (error) { fail(error); }
     },
@@ -374,7 +386,22 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
     borrow: (id) => trade((c) => borrowPlayer(c, id, get().currentRound), 'Empréstimo concluído até o fim da temporada.'),
     counter: (id, amount) => trade((c) => counterOffer(c, id, amount, get().currentRound), 'Resposta do comprador disponível na proposta e nas notícias.'),
     sell: (id) => trade((c) => sellPlayer(c, id, get().currentRound), 'Venda concluída. Revise sua escalação.'),
-    renew: (id) => trade((c) => renewContract(c, id, get().currentRound), 'Contrato renovado por três anos.'),
+    renew: (id, terms) => {
+      try {
+        ensureIdle();
+        const result = negotiateRenewal(careerOf(get()), id, terms);
+        set({ ...result.career, error: null, message: result.message });
+        autoSave();
+      } catch (error) { fail(error); }
+    },
+    fine: (id) => {
+      try {
+        ensureIdle();
+        const career = finePlayer(careerOf(get()), id, get().currentRound);
+        set({ ...career, error: null, message: 'Multa disciplinar creditada no caixa do clube.' });
+        autoSave();
+      } catch (error) { fail(error); }
+    },
     respondOffer: (id, accept) => trade((c) => respondToOffer(c, id, accept, get().currentRound), accept ? 'Proposta aceita. Jogador transferido.' : 'Proposta recusada.'),
     assessYouth: (id) => trade((c) => assessProspect(c, id, get().currentRound), 'Avaliação concluída.'),
     promoteYouth: (id) => trade((c) => promoteProspect(c, id, get().currentRound), 'Jovem promovido ao elenco profissional.'),

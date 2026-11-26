@@ -4,11 +4,12 @@ import { formationRows } from '../../engine/league/lineup';
 import { formationLabel, positionLabels } from '../utils';
 import styles from '../App.module.css';
 
-export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'standard', getSlotProps }: {
+export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'standard', getSlotProps, ratingCards }: {
   formation?: string;
   players?: (Player | undefined)[];
   variant?: 'standard' | 'overview' | 'lineup' | 'match';
   getSlotProps?: (index: number) => HTMLAttributes<HTMLDivElement>;
+  ratingCards?: readonly { name: string; rating?: number; minutes?: number }[];
 }) {
   const patternId = useId();
   const rows = formationRows(formation);
@@ -32,11 +33,14 @@ export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'st
       const parts = player.name.split(' ');
       const name = parts.length > 1 ? `${parts[0][0]}. ${parts.at(-1)}` : parts[0];
       return <g key={index} transform={`translate(${180 + (x - 180) * (.84 + y / 3000)}, ${index === 0 ? 196 : 9 + y * .45})`}>
-        <title>{player.name}</title>
+        {!getSlotProps && <title>{player.name}</title>}
         <path d="M-5-10L-12-6L-14 1L-7 4V11H7V4L14 1L12-6L5-10Q0-5-5-10Z" fill={index ? '#174c86' : '#008f3a'} stroke="#d6e5f3" />
         <text y="4" textAnchor="middle" fill="white" fontSize="6.5" fontWeight="750">{positionLabels[position]}</text>
         <rect x="-26" y="11" width="52" height="12" rx="4" fill="#071c22" />
         <text y="20" textAnchor="middle" fill="white" fontSize="6.7" fontWeight="650">{name.length > 14 ? `${name.slice(0, 13)}…` : name}</text>
+        {getSlotProps && <foreignObject x="-24" y="-10" width="48" height="33">
+          <div title={player.name} {...getSlotProps(index)} />
+        </foreignObject>}
       </g>;
     })}
   </svg>;
@@ -55,16 +59,24 @@ export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'st
     {locations.map(({ x, y, position, scale }, index) => {
       const player = players[index];
       if (variant === 'lineup') {
-        const parts = player?.name.split(' ') ?? [];
+        const rated = ratingCards?.[index];
+        const fullName = rated?.name ?? player?.name;
+        const parts = fullName?.split(' ') ?? [];
         const name = parts.length > 1 ? `${parts[0][0]}. ${parts.at(-1)}` : parts[0];
         const nodeY = index === 0 ? y - 20 : y - 26;
         const fitness = Math.round(player?.fitness ?? 0);
         return <g key={index} transform={`translate(${x}, ${nodeY}) scale(${scale}, 1)`}>
-          {player && !getSlotProps && <title>{player.name}</title>}
+          {fullName && !getSlotProps && <title>{fullName}{rated?.minutes !== undefined ? ` · ${rated.minutes} min` : ''}</title>}
           <path d="M-6-14L-18-8L-21 3L-11 7L-9 3V17H9V3L11 7L21 3L18-8L6-14Q0-8-6-14Z" fill={index ? '#174c86' : '#008f3a'} stroke="#d6e5f3" strokeWidth="1.4" />
           <text y="8" textAnchor="middle" fill="white" fontSize="9" fontWeight="750">{positionLabels[position]}</text>
-          {player && <><rect x="-31" y="18" width="62" height="33" rx="5" fill="#071c22" stroke="#315158" />
+          {(player || rated) && <><rect x="-31" y="18" width="62" height="33" rx="5" fill="#071c22" stroke="#315158" />
             <text y="30" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="650">{name && name.length > 14 ? `${name.slice(0, 13)}…` : name}</text>
+          </>}
+          {rated && <>
+            <rect x="-12" y="34" width="24" height="13" rx="3" fill="#008e35" />
+            <text y="44" textAnchor="middle" fill="white" fontSize="8" fontWeight="750">{rated.rating?.toFixed(1).replace('.', ',') ?? '—'}</text>
+          </>}
+          {player && <>
             <rect x="-25" y="34" width="20" height="13" rx="3" fill="#008e35" />
             <text x="-15" y="44" textAnchor="middle" fill="white" fontSize="8" fontWeight="750">{player.overall}</text>
             <g role="meter" aria-label={`Condição física de ${player.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={fitness}>
@@ -72,8 +84,12 @@ export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'st
               <rect x="-1" y="43" width="26" height="4" rx="2" fill="#254553" />
               <rect x="-1" y="43" width={26 * fitness / 100} height="4" rx="2" fill="var(--accent)" />
             </g></>}
+          {player?.injury && <text x="19" y="-5" fill="#ff8888" fontSize="10" fontWeight="750">✚</text>}
+          {!!player?.discipline.suspendedMatches && <rect x="21" y="0" width="6" height="8" rx="1.2" fill={player.discipline.redSuspension ? '#e94646' : '#ffcd49'} />}
+          {!!player?.discipline.yellowCards && <text x="-26" y="10" fill="#ffcd49" fontSize="6.5" fontWeight="750">{player.discipline.yellowCards}/3</text>}
           {getSlotProps && <foreignObject x="-26" y="-15" width="52" height="67">
-            <div title={player?.name} {...getSlotProps(index)} />
+            <div title={player?.injury || player?.discipline.suspendedMatches
+              ? `${player.name} · ${player.injury ? 'Lesionado' : 'Suspenso'}` : player?.name} {...getSlotProps(index)} />
           </foreignObject>}
         </g>;
       }

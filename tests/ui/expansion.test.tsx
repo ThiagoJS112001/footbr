@@ -15,6 +15,7 @@ import type { Career } from '../../src/engine/career/career';
 import type { Lineup } from '../../src/engine/models';
 import { saveKey } from '../../src/ui/store/gameStore';
 import { prospectReport } from '../../src/engine/career/academy';
+import { repairLineup } from '../../src/engine/career/progression';
 
 beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); });
 afterEach(cleanup);
@@ -24,10 +25,18 @@ function start(cupParticipant = false) {
   state.selectTeam(cupParticipant ? state.systems.cup.rounds[0].matches[0].homeTeamId : state.league!.teams[19].id);
 }
 
+async function advancePreparedRounds(rounds: number) {
+  for (let index = 0; index <= rounds; index++) {
+    const state = useGameStore.getState();
+    useGameStore.setState(repairLineup(careerOf(state), state.lineup));
+    if (index < rounds) await state.advanceRound();
+  }
+}
+
 describe('decisões rápidas de carreira na interface', () => {
   it('carrega um slot v1 em andamento sem sortear novamente o passado da partida', async () => {
     start();
-    for (let i = 0; i < 2; i++) await useGameStore.getState().advanceRound();
+    await advancePreparedRounds(2);
     const legacy = JSON.parse(useGameStore.getState().exportGame()!);
     legacy.version = 1;
     delete legacy.data.career.systems;
@@ -142,7 +151,7 @@ describe('decisões rápidas de carreira na interface', () => {
 
   it('prepara a copa pelo mesmo botão e exibe resumo sem avançar outra rodada da liga', async () => {
     start(true);
-    for (let i = 0; i < 4; i++) await useGameStore.getState().advanceRound();
+    await advancePreparedRounds(4);
     expect(useGameStore.getState().currentRound).toBe(5);
     render(<App />);
     const user = userEvent.setup();
@@ -160,7 +169,7 @@ describe('decisões rápidas de carreira na interface', () => {
 
   it('salva e retoma uma partida de copa com as mesmas escalações, minuto e decisões', async () => {
     start(true);
-    for (let i = 0; i < 4; i++) await useGameStore.getState().advanceRound();
+    await advancePreparedRounds(4);
     useGameStore.getState().kickOff();
     for (let i = 0; i < 15; i++) useGameStore.getState().tickMatch();
     useGameStore.getState().changeStyle('defensive');

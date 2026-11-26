@@ -3,11 +3,16 @@ import { initialGameData, useGameStore } from '../../src/ui/store/gameStore';
 import { availableJobs, createBoard } from '../../src/engine/career/board';
 import { createAcademy } from '../../src/engine/career/academy';
 import { careerOf } from '../../src/ui/store/gameStore';
-import { nextCompetition, seasonComplete } from '../../src/engine/career/progression';
+import { finishCareerEvent, nextCompetition, repairLineup, seasonComplete } from '../../src/engine/career/progression';
 import { arrangeDivisions, worldLeagues } from '../../src/engine/career/world';
 import { decodeSave } from '../../src/engine/save/save';
+import { finishMatch } from '../../src/engine/simulation/simulateMatch';
 
 beforeEach(() => useGameStore.setState({ ...initialGameData }));
+function prepareLineup() {
+  const state = useGameStore.getState();
+  useGameStore.setState(repairLineup(careerOf(state), state.lineup));
+}
 
 describe('store do jogo', () => {
   it('prepara calendário e tabela e ignora escolhas inválidas', () => {
@@ -21,6 +26,26 @@ describe('store do jogo', () => {
     expect(useGameStore.getState().selectedTeamId).toBeNull();
   });
 
+  it('mantém a escalação salva com o desfalque e bloqueia a partida seguinte até a revisão', () => {
+    const initial = useGameStore.getState();
+    initial.startNewGame(42);
+    initial.selectTeam(useGameStore.getState().league!.teams[0].id);
+    initial.kickOff();
+    const state = useGameStore.getState();
+    const lineup = state.lineup!;
+    const playerId = lineup.starterIds[0];
+    const games = state.live!.games.map(finishMatch);
+    const game = games.find((item) => item.home.team.id === state.selectedTeamId || item.away.team.id === state.selectedTeamId)!;
+    game.events.push({ type: 'injury', playerId, teamId: state.selectedTeamId!, minute: 90, description: 'Lesão no fim da partida' });
+    const next = finishCareerEvent(careerOf(state), state.liveCompetition, { ...state.live!, games });
+    expect(next.lineup).toEqual(lineup);
+    expect(next.league.teams.find((t) => t.id === state.selectedTeamId)!.squad.find((p) => p.id === playerId)?.injury).not.toBeNull();
+    useGameStore.setState({ ...next, live: null });
+    initial.kickOff();
+    expect(useGameStore.getState().live).toBeNull();
+    expect(useGameStore.getState().error).toMatch(/titular indisponível/);
+  });
+
   it('bloqueia cliques concorrentes e conclui exatamente 38 rodadas', async () => {
     useGameStore.getState().startNewGame(2026);
     useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[0].id);
@@ -29,6 +54,7 @@ describe('store do jogo', () => {
     expect(useGameStore.getState().systems.lastSummary).toMatchObject({ competition: 'state', round: 1 });
     for (let index = 0; !seasonComplete(careerOf(useGameStore.getState())) && index < 60; index++) {
       if (useGameStore.getState().systems.board.status === 'dismissed') useGameStore.getState().acceptJob(availableJobs(careerOf(useGameStore.getState()))[0].id);
+      prepareLineup();
       await useGameStore.getState().advanceRound();
       expect(useGameStore.getState().error).toBeNull();
     }
@@ -59,9 +85,11 @@ describe('store do jogo', () => {
       systems: { ...next.systems, board: createBoard(qualified, qualifiedLeague), academy: createAcademy(qualified, next.seed, next.season),
         offers: next.systems.offers.filter((offer) => offer.status !== 'pending') } });
     for (let i = 0; i < 16 && nextCompetition(careerOf(useGameStore.getState())) !== 'continental'; i++) {
+      prepareLineup();
       await useGameStore.getState().advanceRound();
       expect(useGameStore.getState().error).toBeNull();
     }
+    prepareLineup();
     useGameStore.getState().kickOff();
     useGameStore.getState().tickMatch();
     const live = useGameStore.getState().live;

@@ -15,13 +15,14 @@ import { Panel } from '../components/Panel';
 import { TacticalPitch } from '../components/TacticalPitch';
 import { PreparationChecklist } from '../components/PreparationChecklist';
 import { OpponentReport } from '../components/OpponentReport';
-import { formationLabel, positionLabels } from '../utils';
+import { PlayerStatus } from '../components/PlayerStatus';
+import { redCardFine } from '../../engine/career/discipline';
+import { currency, formationLabel, positionLabels, positionOrder } from '../utils';
 import styles from '../App.module.css';
 import views from './ClubViews.module.css';
 
-const positionOrder = Object.keys(positionLabels);
 const comparePlayers = (a: Player, b: Player) =>
-  positionOrder.indexOf(a.primaryPosition) - positionOrder.indexOf(b.primaryPosition)
+  positionOrder(a.primaryPosition) - positionOrder(b.primaryPosition)
   || b.overall - a.overall || a.name.localeCompare(b.name, 'pt-BR');
 
 export function LineupScreen({ team }: { team: Team }) {
@@ -45,6 +46,7 @@ export function LineupScreen({ team }: { team: Team }) {
   const playersById = new Map(team.squad.map((player) => [player.id, player]));
   const starters = slots.map((_, index) => playersById.get(lineup?.starterIds[index] ?? ''));
   const reserves = (lineup?.substituteIds ?? []).flatMap((id) => playersById.get(id) ?? []);
+  const unavailablePlayers = [...starters, ...reserves].filter((p): p is Player => !!p && !!(p.injury || p.discipline.suspendedMatches));
   const unselected = team.squad.filter((p) => !lineup?.starterIds.includes(p.id) && !lineup?.substituteIds.includes(p.id));
   const starterCount = starters.filter(Boolean).length;
   const average = (attribute: 'overall' | 'fitness' | 'morale') => Math.round(starters.reduce((total, p) => total + (p?.[attribute] ?? 0), 0) / (starterCount || 1));
@@ -57,7 +59,9 @@ export function LineupScreen({ team }: { team: Team }) {
     && (player.primaryPosition === slots[index] || player.secondaryPosition === slots[index]);
 
   const dragSource = (player?: Player): HTMLAttributes<HTMLElement> => {
-    if (!lineup || !player || player.injury || player.discipline.suspendedMatches) return {};
+    if (!lineup || !player) return {};
+    const assigned = lineup.starterIds.includes(player.id) || lineup.substituteIds.includes(player.id);
+    if (!assigned && (player.injury || player.discipline.suspendedMatches)) return {};
     return {
       draggable: true,
       onDragStart: (event) => {
@@ -110,10 +114,18 @@ export function LineupScreen({ team }: { team: Team }) {
         ...dropTarget(!bench && moveToGroup && !player.injury && !player.discipline.suspendedMatches, () => toggleReserve(player.id, dragged!.id)),
         className: draggedSlot >= 0 && fits(player, draggedSlot) ? views.dropSlot : undefined,
       })} columns={[
-        { id: 'name', label: 'Jogador', render: (p) => <span className={views.inline}><Icon name="shirt" size={22} className={views.rosterShirt} />{p.name}</span> },
+        { id: 'name', label: 'Jogador', render: (p) => <span className={views.inline}><Icon name="shirt" size={22} className={views.rosterShirt} />{p.name}<PlayerStatus player={p} /></span> },
         { id: 'position', label: 'Posição', render: (p) => <span className={styles.positionTag}>{positionLabels[p.primaryPosition]}</span> },
         { id: 'overall', label: 'Força', render: (p) => <span className={styles.rating}>{p.overall}</span> },
-        { id: 'fitness', label: 'Condição', render: (p) => p.injury ? 'Lesionado' : p.discipline.suspendedMatches ? 'Suspenso' : <Level value={p.fitness} /> },
+        { id: 'fitness', label: 'Condição', render: (p) => {
+          const fine = redCardFine(p, team.id);
+          if (!p.injury && !p.discipline.suspendedMatches) return <Level value={p.fitness} />;
+          return <span className={views.inline}>
+            {p.injury ? 'Lesionado' : 'Suspenso'}
+            {bench && <button className={styles.textButton} onClick={() => toggleReserve(p.id)}>Retirar</button>}
+            {fine > 0 && <button className={styles.textButton} onClick={() => state.fine(p.id)}>Multar · {currency(fine)}</button>}
+          </span>;
+        } },
       ]} />
     </Panel>;
   };
@@ -128,6 +140,7 @@ export function LineupScreen({ team }: { team: Team }) {
     </PageHeader>
     <div className={views.tabs}>{(['Escalação', 'Tática', 'Instruções'] as const).map((name, index) => <button key={name} aria-pressed={tab === name} className={tab === name ? styles.primaryButton : styles.secondaryButton} onClick={() => setTab(name)}><Icon name={(['lineup', 'target', 'news'] as const)[index]} size={17} />{name}</button>)}</div>
     {unavailable && <p className={styles.error}>{unavailable} Contrate jogadores ou acompanhe a rodada com W.O.</p>}
+    {unavailablePlayers.length > 0 && <p className={styles.error} role="alert">Revise a escalação. {unavailablePlayers.map((p) => p.name).join(', ')} {unavailablePlayers.length === 1 ? 'está indisponível' : 'estão indisponíveis'} para a partida.</p>}
     <div className={`${styles.panel} ${views.surface} ${views.lineupSummary}`}>
       <div className={views.lineupAverages}>
         <span className={styles.muted}>Força média<strong>{average('overall')}</strong></span>
@@ -136,7 +149,7 @@ export function LineupScreen({ team }: { team: Team }) {
       </div>
       <div className={views.lineupActions}>
         <button className={styles.secondaryButton} onClick={autoLineup}>Escalar automaticamente</button>
-        <button className={styles.primaryButton} disabled={complete || !!state.live || state.isAdvancing || systems.board.status === 'dismissed'} onClick={kickOff}>
+        <button className={styles.primaryButton} disabled={complete || unavailablePlayers.length > 0 || !!state.live || state.isAdvancing || systems.board.status === 'dismissed'} onClick={kickOff}>
           <Icon name="match" size={17} />{complete ? 'Temporada concluída' : lineup ? 'Jogar partida' : 'Acompanhar rodada com W.O.'}
         </button>
       </div>

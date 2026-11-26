@@ -1,6 +1,8 @@
 .top, .lower { display: grid; gap: 16px; margin-bottom: 16px; }
 .top { grid-template-columns: minmax(0, .93fr) minmax(0, 1.07fr); }
 .lower { grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr) minmax(0, .94fr); }
+.roundSummary { min-width: 0; display: grid; }
+.roundSummary > section { margin-bottom: 0; }
 .top section, .lower section { background: linear-gradient(155deg, #102c3be8, #081a27f2 66%); border-color: #426877a8; }
 .top h2, .lower h2 { font-size: clamp(.95rem, 1.2vw, 1.23rem); }
 .top h2 svg, .lower h2 svg { color: #68e6a4; }
@@ -13,6 +15,7 @@
 .matchActions button { gap: 6px; padding-inline: 7px; font-size: .74rem; }
 .matchActions button:nth-child(2) { color: #fff; background: linear-gradient(#089f36, #057525); border-color: #0ca549; }
 .squadOverview, .side { min-width: 0; display: grid; gap: 12px; align-content: start; }
+.lower > .side { align-content: stretch; grid-auto-rows: 1fr; }
 .squadOverview { grid-template-rows: auto 1fr; align-content: stretch; }
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin: 0; padding: 9px; border: 1px solid #426877a8; border-radius: 13px; background: #0b2130ed; }
 .metrics > div { display: grid; grid-template-columns: auto 1fr; align-content: center; align-items: center; gap: 4px 8px; min-height: 62px; padding: 8px; border: 1px solid #42687750; border-radius: 9px; background: linear-gradient(#123241, #0b1e2c); }

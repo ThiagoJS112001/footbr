@@ -188,9 +188,16 @@ describe('rodadas e temporada', () => {
           const player = team.squad.find((entry) => entry.id === event.playerId)!;
           if (event.type === 'injury') { expect(player.injury).not.toBeNull(); sawInjury = true; }
           else {
-            expect(player.discipline.suspendedMatches).toBe(1);
-            if (event.card === 'yellow') sawYellowSuspension = true;
-            if (event.card === 'red') sawRed = true;
+            if (event.card === 'red') {
+              expect(player.discipline.suspendedMatches).toBeGreaterThanOrEqual(2);
+              expect(player.discipline.suspendedMatches).toBeLessThanOrEqual(5);
+              expect(player.discipline.redSuspension).toEqual({ games: player.discipline.suspendedMatches, fined: false, teamId: team.id });
+              sawRed = true;
+            } else if (!player.discipline.redSuspension) {
+              expect(player.discipline.suspendedMatches).toBe(1);
+              expect(player.discipline.yellowCards).toBe(0);
+              sawYellowSuspension = true;
+            }
           }
           try {
             const picked = autoPickLineup(team);

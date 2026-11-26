@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { askingPrice, buyPlayer, createCareer, nextSeason, renewContract, sellPlayer } from '../src/engine/career/career';
+import { askingPrice, buyPlayer, createCareer, nextSeason, sellPlayer } from '../src/engine/career/career';
+import { negotiateRenewal } from '../src/engine/career/renewals';
 import type { Career } from '../src/engine/career/career';
 import { createSystems } from '../src/engine/career/bootstrap';
 import { ownTeam, replaceTeams, worldTeams } from '../src/engine/career/world';
@@ -51,7 +52,7 @@ describe('identidade e decisões da carreira', () => {
     expect(ownTeam(next).payroll).toBe(buyer.payroll + player.contract!.salary);
     expect(worldTeams(next).find((t) => t.id === seller.id)!.payroll).toBe(seller.payroll - player.contract!.salary);
     expect(() => sellPlayer(next, player.id, 1)).toThrow('emprestado');
-    expect(() => renewContract(next, player.id, 1)).toThrow('pertence');
+    expect(() => negotiateRenewal(next, player.id, null)).toThrow('pertence');
     expect(() => buyPlayer(next, player.id, askingPrice(player), player.contract!.salary * 2, 3, 1)).toThrow();
     const returned = returnLoans(next);
     expect(worldTeams(returned).find((t) => t.id === seller.id)!.squad.find((p) => p.id === player.id)?.contract).toEqual(player.contract);

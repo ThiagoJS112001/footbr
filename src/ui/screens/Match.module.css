@@ -23,21 +23,23 @@
 .stat svg, .substitution h2 svg { color: var(--accent); flex: none; }
 .stat > div { display: grid; gap: 4px; }
 .stat strong { white-space: nowrap; }
-.technicalGrid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .9fr); gap: 12px; }
+.technicalGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; }
+.pitchControls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 8px 12px 0; }
+.pitchControls label { flex: 1 1 140px; }
 .pitch > svg { max-height: 320px; padding: 8px; }
+.pitch foreignObject div { box-sizing: border-box; width: 100%; height: 100%; border-radius: 4px; }
+.dropStarter { border: 1px dashed var(--accent); background: var(--accent-soft); }
+.benchHint { margin: 0; padding: 9px 10px; color: var(--muted); font-size: .75rem; }
+.bench tr[draggable="true"] { cursor: grab; }
 .bench table :is(th, td) { height: 29px; padding: 4px 7px; }
-.commands { display: grid; gap: 10px; padding: 13px; }
-.postures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.postures button { flex-direction: column; padding: 8px 3px; font-size: .7rem; }
-.postures button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 .substitution, .toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 12px; }
 .substitution > div { align-self: center; margin-right: 8px; }
 .substitution > div > small { color: var(--muted); }
 .substitution label { flex: 1 1 150px; min-width: 0; }
 .substitution select { width: 100%; }
 .feeds { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
-.timeline, .otherGames { list-style: none; margin: 0; padding: 0 12px; max-height: 360px; overflow: auto; scrollbar-color: var(--line) var(--surface-deep); }
-.paused .timeline, .paused .otherGames { max-height: 180px; }
+.timeline, .otherGames { list-style: none; margin: 0; padding: 0 12px; max-height: 180px; overflow: auto; scrollbar-color: var(--line) var(--surface-deep); }
+.timeline { height: 180px; overscroll-behavior-y: contain; }
 .timeline li { display: grid; grid-template-columns: 36px 22px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 55px; padding: 9px; border-bottom: 1px solid var(--line-soft); font-size: .8rem; }
 .timeline li:first-child { margin-top: 8px; border-left: 2px solid var(--accent); border-radius: 5px; background: var(--accent-soft); }
 .timeline li > strong, .timeline li > svg { color: var(--accent-text); }
@@ -56,7 +58,6 @@
 .speed button { min-width: 44px; min-height: 36px; padding: 5px 8px; }
 .speed button[aria-pressed="false"] { border-color: transparent; background: transparent; }
 @media (max-width: 1120px) {
-  .technicalGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .feeds { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
