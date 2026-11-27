@@ -17,12 +17,20 @@ import { saveKey } from '../../src/ui/store/gameStore';
 import { prospectReport } from '../../src/engine/career/academy';
 import { repairLineup } from '../../src/engine/career/progression';
 
+if (!HTMLDialogElement.prototype.showModal) {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.setAttribute('open', ''); } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute('open'); } },
+  });
+}
+
 beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); });
 afterEach(cleanup);
-function start(cupParticipant = false) {
+function start(cupParticipant = false, signSponsorship = true) {
   useGameStore.getState().startCustomGame(createCareer(42));
   const state = useGameStore.getState();
   state.selectTeam(cupParticipant ? state.systems.cup.rounds[0].matches[0].homeTeamId : state.league!.teams[19].id);
+  if (signSponsorship) state.sponsor('raiz');
 }
 
 async function advancePreparedRounds(rounds: number) {
@@ -34,6 +42,30 @@ async function advancePreparedRounds(rounds: number) {
 }
 
 describe('decisões rápidas de carreira na interface', () => {
+  it('abre patrocínios, busca de jovens e perfil do treinador pelos pontos de entrada do jogo', async () => {
+    start(false, false);
+    render(<App />);
+    const user = userEvent.setup();
+    expect(screen.getByRole('button', { name: 'Jogar rodada' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Comparar patrocinadores' }));
+    expect(screen.getByRole('heading', { name: 'Patrocínios do clube' })).toBeInTheDocument();
+    const offers = screen.getAllByRole('button', { name: 'Assinar contrato' });
+    expect(offers).toHaveLength(3);
+    await user.click(offers[0]);
+    expect(screen.getByText('Rede Raiz')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Central do Clube' }));
+    expect(screen.getByRole('button', { name: 'Jogar rodada' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Mercado' }));
+    await user.click(screen.getByRole('button', { name: 'Jovens Promessas' }));
+    expect(screen.getByRole('table', { name: 'Jovens de outros clubes' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Minha Carreira' }));
+    expect(screen.getByRole('heading', { name: 'Minha Carreira' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Patrimônio e apostas' }));
+    expect(screen.getByRole('heading', { name: 'Patrimônio pessoal' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Denunciar abordagem' }));
+    expect(useGameStore.getState().systems.coach?.incidents.at(-1)?.kind).toBe('report');
+  });
+
   it('carrega um slot v1 em andamento sem sortear novamente o passado da partida', async () => {
     start();
     await advancePreparedRounds(2);
@@ -78,7 +110,9 @@ describe('decisões rápidas de carreira na interface', () => {
     await user.click(screen.getByRole('button', { name: 'Propostas recebidas' }));
     expect(screen.queryByRole('table', { name: 'Jogadores no mercado' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: `Analisar proposta por ${offer.playerName}` }));
-    await user.click(screen.getByRole('button', { name: `Aceitar proposta por ${offer.playerName}` }));
+    const proposal = within(screen.getByRole('dialog', { name: offer.playerName }));
+    await user.click(proposal.getByRole('button', { name: `Aceitar proposta por ${offer.playerName}` }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(useGameStore.getState().error).toBeNull();
     expect(ownTeam(careerOf(useGameStore.getState())).squad.some((p) => p.id === offer.playerId)).toBe(false);
     const navigation = screen.getByRole('navigation', { name: 'Navegação principal' });
@@ -86,15 +120,17 @@ describe('decisões rápidas de carreira na interface', () => {
     expect(navigation).not.toHaveTextContent('Partida');
     await user.click(screen.getByRole('button', { name: 'Minhas negociações' }));
     await user.click(screen.getByRole('button', { name: 'Ver movimentações do mercado' }));
-    expect(screen.getByRole('table', { name: 'Histórico de transferências' })).toHaveTextContent(offer.playerName);
+    expect(await screen.findByRole('table', { name: 'Histórico de transferências' })).toHaveTextContent(offer.playerName);
   });
 
   it('avalia um jovem, revela potencial e o promove ao elenco profissional', async () => {
     start();
-    const prospect = useGameStore.getState().systems.academy.prospects[0];
+    const prospect = useGameStore.getState().systems.academy.prospects[1];
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Categorias de Base' }));
+    const playerRow = screen.getByRole('button', { name: prospect.player.name }).closest('tr')!;
+    await user.click(within(playerRow).getAllByRole('cell')[2]);
     await user.click(screen.getByRole('button', { name: `Avaliar ${prospect.player.name}` }));
     const report = prospectReport(prospect.player, ownTeam(careerOf(useGameStore.getState())));
     expect(screen.getByText(`${report.low}–${report.high} · faixa estimada`)).toBeInTheDocument();
@@ -115,6 +151,7 @@ describe('decisões rápidas de carreira na interface', () => {
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Ver propostas de emprego' }));
+    await user.click(screen.getByRole('button', { name: 'Propostas para continuar sua carreira' }));
     const jobs = screen.getAllByRole('button', { name: /^Assumir / });
     expect(jobs).toHaveLength(3);
     await user.click(jobs[0]);

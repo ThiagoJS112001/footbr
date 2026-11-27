@@ -1,9 +1,7 @@
-import { availableJobs } from '../../engine/career/board';
 import { ownTeam } from '../../engine/career/world';
 import { careerOf, useGameStore } from '../store/gameStore';
 import { PageHeader } from '../components/PageHeader';
 import { Panel, StatCard } from '../components/Panel';
-import { ClubBadge } from '../components/ClubBadge';
 import { currency } from '../utils';
 import styles from '../App.module.css';
 import { clubProfile, profileInfo } from '../../engine/models/personality';
@@ -25,7 +23,7 @@ export function BoardScreen() {
       <Panel title={profileInfo[clubProfile(team)].label} icon="shield"><p className={styles.tableNote}>{profileInfo[clubProfile(team)].description}{clubProfile(team) === 'academy' ? ' Pelo menos 360 minutos de atletas sub-21 entre avaliações rendem 3 pontos extras de confiança.' : ''}</p></Panel>
       <Panel title="Avaliações recebidas" icon="history"><ul className={styles.compactList}>{[...board.reviews].reverse().map((review) => <li key={review.round}><span><strong>Rodada {review.round} · {review.confidence}% de confiança</strong><small>{review.note}</small></span></li>)}{!board.reviews.length && <li className={styles.muted}>A diretoria dará tempo para o seu trabalho começar.</li>}</ul></Panel>
     </div>
-    {board.status === 'dismissed' && <Panel title="Propostas para continuar sua carreira" icon="market"><p className={styles.tableNote}>Sua carreira continua no mesmo mundo e na mesma temporada. Escolha um clube interessado para assumir o elenco e uma nova meta.</p><div className={styles.jobGrid}>{availableJobs(career).map((club) => <article className={styles.jobCard} key={club.id}><ClubBadge name={club.name} image={club.identity?.facts.image} size="large" /><h3>{club.name}</h3><p className={styles.muted}>Divisão {club.division} · Reputação {club.reputation}<br />Saldo: {currency(club.budget)}</p><button className={styles.primaryButton} onClick={() => state.acceptJob(club.id)}>Assumir {club.name}</button></article>)}</div></Panel>}
+    {board.status === 'dismissed' && <div><button className={styles.secondaryButton} onClick={() => state.navigate('coach')}>Propostas para continuar sua carreira</button></div>}
     </div>
   </>;
 }

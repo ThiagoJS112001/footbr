@@ -48,8 +48,9 @@ export function AcademyScreen() {
         <div className={styles.tableToolbar}><div><h2>{tab === 'Elenco' ? 'Elenco da base' : tab}</h2><span className={styles.muted}>Selecione um jogador para abrir o perfil.</span></div>
           <label className={styles.filterLabel}>Ordenar por<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="potential">Potencial avaliado</option><option value="overall">Força (maior)</option><option value="age">Idade (menor)</option></select></label>
         </div>
-        <DataTable caption={tab} rows={rows} getRowId={({ player }) => player.id} getRowClassName={(p) => p === selected ? styles.selectedRow : ''} columns={[
-          { id: 'name', label: 'Jogador', render: ({ player }) => <button className={`${styles.playerButton} ${views.inline}`} aria-pressed={player.id === selected?.player.id} onClick={() => setSelectedId(player.id)}><Icon name="shirt" size={23} className={views.headingIcon} />{player.name}</button> },
+        <DataTable caption={tab} rows={rows} getRowId={({ player }) => player.id} getRowProps={({ player }) => ({ onClick: () => setSelectedId(player.id) })}
+          getRowClassName={(p) => `${views.academyRow} ${p === selected ? styles.selectedRow : ''}`} columns={[
+          { id: 'name', label: 'Jogador', render: ({ player }) => <button className={`${styles.playerButton} ${views.inline}`} aria-pressed={player.id === selected?.player.id}><Icon name="shirt" size={23} className={views.headingIcon} />{player.name}</button> },
           { id: 'position', label: 'Posição', render: ({ player }) => <span className={styles.positionTag}>{positionLabels[player.primaryPosition]}</span> },
           { id: 'age', label: 'Idade', render: ({ player }) => player.age },
           { id: 'overall', label: 'Geral', render: ({ player }) => <span className={styles.rating}>{player.overall}</span> },

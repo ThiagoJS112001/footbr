@@ -31,6 +31,10 @@ describe('store do jogo', () => {
     initial.startNewGame(42);
     initial.selectTeam(useGameStore.getState().league!.teams[0].id);
     initial.kickOff();
+    expect(useGameStore.getState().live).toBeNull();
+    expect(useGameStore.getState().error).toMatch(/patrocínio/);
+    initial.sponsor('raiz');
+    initial.kickOff();
     const state = useGameStore.getState();
     const lineup = state.lineup!;
     const playerId = lineup.starterIds[0];
@@ -49,6 +53,7 @@ describe('store do jogo', () => {
   it('bloqueia cliques concorrentes e conclui exatamente 38 rodadas', async () => {
     useGameStore.getState().startNewGame(2026);
     useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[0].id);
+    useGameStore.getState().sponsor('raiz');
     await Promise.all([useGameStore.getState().advanceRound(), useGameStore.getState().advanceRound()]);
     expect(useGameStore.getState().currentRound).toBe(1);
     expect(useGameStore.getState().systems.lastSummary).toMatchObject({ competition: 'state', round: 1 });
@@ -107,6 +112,7 @@ describe('store do jogo', () => {
   it('um novo jogo não recebe o resultado pendente da partida anterior', async () => {
     useGameStore.getState().startNewGame(1);
     useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[0].id);
+    useGameStore.getState().sponsor('raiz');
     const pending = useGameStore.getState().advanceRound();
     useGameStore.getState().startNewGame(2);
     await pending;

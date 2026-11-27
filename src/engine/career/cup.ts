@@ -10,6 +10,7 @@ import { addFinance, seasonSeed } from './career';
 import { careerConfig as config } from './config';
 import { completedRounds, replaceTeams, worldTeams } from './world';
 import { derbyAttendance } from './stories';
+import { captureAwardsContext, finalizeCupAwards, noteManagedCoach } from './awards';
 
 function fixtures(id: string, stage: number, ids: string[], weeks?: number[]): CupRound {
   const matches: Match[] = [];
@@ -50,12 +51,14 @@ export function decideCupMatch(match: Match, home: Team, away: Team, seed: numbe
   return { ...match, penalties, winnerTeamId: penalties.home > penalties.away ? home.id : away.id };
 }
 
-export function finishCupRound(career: Career, session: RoundSession, cup = career.systems.cup): Career {
+export function finishCupRound(career: Career, session: RoundSession, cup = career.systems.cup, coachName?: string): Career {
+  career = captureAwardsContext(career);
   const stage = dueCupRound(career, cup);
   if (!stage || stage.round !== session.round) throw new Error('Etapa de copa incompatível.');
   const league = finishRound(cupLeague(career, cup), session, { days: 0, recovery: 0, onlyParticipants: true });
   const rng = createRng((session.seed ^ stage.round) >>> 0);
-  const matches = league.schedule[0].matches.map((m) => decideCupMatch(m, league.teams.find((t) => t.id === m.homeTeamId)!, league.teams.find((t) => t.id === m.awayTeamId)!, randomInt(rng, 0, 0xffff_ffff)));
+  const matches = league.schedule[0].matches.map((m) => noteManagedCoach(
+    decideCupMatch(m, league.teams.find((t) => t.id === m.homeTeamId)!, league.teams.find((t) => t.id === m.awayTeamId)!, randomInt(rng, 0, 0xffff_ffff)), career.selectedTeamId, coachName));
   const winners = matches.map((m) => m.winnerTeamId!);
   const nextIds = stage.round === 1 ? [...winners, ...cup.byeTeamIds] : winners;
   let next = replaceTeams(career, league.teams);
@@ -75,23 +78,24 @@ export function finishCupRound(career: Career, session: RoundSession, cup = care
   }
   const own = matches.find((m) => m.homeTeamId === career.selectedTeamId || m.awayTeamId === career.selectedTeamId);
   const note = own ? `${stage.name}: ${own.winnerTeamId === career.selectedTeamId ? updated.championId ? 'você conquistou a copa!' : 'classificação garantida.' : 'seu clube foi eliminado da copa.'}` : `${stage.name} da copa concluída.`;
-  return { ...next, news: [note, ...next.news].slice(0, 20) };
+  return finalizeCupAwards({ ...next, news: [note, ...next.news].slice(0, 20) }, updated);
 }
 export function playCupRound(career: Career, cup = career.systems.cup): Career {
   const session = startCupRound(career, null, {}, cup);
   return finishCupRound(career, { ...session, games: session.games.map(finishMatch) }, cup);
 }
 /** Rodadas sem o clube do técnico são resolvidas automaticamente. */
-export function resolveBackgroundCup(career: Career): Career {
-  let next = career;
-  let cup = backgroundCup(next);
-  while (cup) { next = playCupRound(next, cup); cup = backgroundCup(next); }
+export function resolveBackgroundCup(career: Career, includeSelected = false): Career {
+  let next = captureAwardsContext(career);
+  let cup = backgroundCup(next, includeSelected);
+  while (cup) { next = playCupRound(next, cup); cup = backgroundCup(next, includeSelected); }
   return next;
 }
 
 const involves = (match: Match, teamId: string | null) => match.homeTeamId === teamId || match.awayTeamId === teamId;
 export const allCups = (career: Career) => [career.systems.cup, ...(career.systems.stateCups ?? []), ...(career.systems.continentalCups ?? [])];
-const backgroundCup = (career: Career) => allCups(career).find((cup) => dueCupRound(career, cup) && !dueCupRound(career, cup)!.matches.some((match) => involves(match, career.selectedTeamId)));
+const backgroundCup = (career: Career, includeSelected: boolean) => allCups(career).find((cup) => dueCupRound(career, cup)
+  && (includeSelected || !dueCupRound(career, cup)!.matches.some((match) => involves(match, career.selectedTeamId))));
 
 export function managedCup(career: Career, kind: 'cup' | 'state' | 'continental' | 'continental-secondary'): Cup | undefined {
   if (kind === 'cup') return career.systems.cup;

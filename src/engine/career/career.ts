@@ -2,7 +2,7 @@ import type { League, Lineup, Player, Team } from '../models';
 import type { CareerSource } from '../../data/catalog';
 import { generateLeague } from '../generators/league';
 import { generateTeam } from '../generators/team';
-import { calculateOverall } from '../generators/player';
+import { adjustAttributes, calculateOverall } from '../generators/player';
 import { createRng, randomInt } from '../generators/random';
 import { calculateStandings, generateSchedule, getTopScorers, formationSlots } from '../league';
 import type { CareerSystems } from './types';
@@ -12,9 +12,12 @@ import { arrangeDivisions, replaceTeams, requireManagedClub, worldLeagues, world
 import { activeLoan, appendTransfer, canSell, rosterSize, signingInterest, spendingRoom, returnLoans } from './market';
 import { derbyAttendance } from './stories';
 import { archiveSeason } from './history';
-import { createAcademy } from './academy';
+import { advanceAcademies, createAcademy } from './academy';
+import { prepareAiSponsors, settleSponsors, sponsorWeekly } from './sponsors';
+import { coachSeasonEnd } from './coach';
 import { createBoard } from './board';
 import { allCups, createContinentalCups, createCup, createStateCups, resolveBackgroundCup } from './cup';
+import { agePrestige, completeSeasonAwards, finalizeLeagueAwards, prestigeOf, retainedPrestige } from './awards';
 
 export interface FinanceEntry {
   teamId?: string;
@@ -57,7 +60,7 @@ export const seasonSeed = (career: Pick<Career, 'seed' | 'season'>) => (career.s
 export const isWindowOpen = (round: number) => round <= 4 || (round >= 20 && round <= 23);
 export const payroll = (team: Team) => team.squad.reduce((sum, p) => sum + (p.contract?.salary ?? 0), 0);
 export const playerValue = (player: Player) => Math.round(10000 * (player.overall / 10) ** 3
-  * (player.age <= 23 ? 1.3 : Math.max(0.3, 1.15 - (player.age - 24) * 0.07)) / 1000) * 1000;
+  * (player.age <= 23 ? 1.3 : Math.max(0.3, 1.15 - (player.age - 24) * 0.07)) * (1 + prestigeOf(player)) / 1000) * 1000;
 export const askingPrice = (player: Player) => Math.round(player.marketValue * 1.15 / 1000) * 1000;
 
 function prepareLeague(base: League, teams: Team[], division: number, seed: number, divisionCount = 2): League {
@@ -87,11 +90,11 @@ export function createCareer(seed: number, expanded = false): Career {
 
 const changeTeams = replaceTeams;
 
-export function addFinance(career: Career, teamId: string, round: number, description: string, amount: number): Career {
+export function addFinance(career: Career, teamId: string, round: number, description: string, amount: number, recordForAllClubs = false): Career {
   const team = worldTeams(career).find((t) => t.id === teamId)!;
   const balance = team.budget + amount;
   const next = changeTeams(career, [{ ...team, budget: balance }]);
-  if (teamId === career.selectedTeamId) next.finances = [...career.finances, { teamId, season: career.season, round, description, amount, balance }];
+  if (recordForAllClubs || teamId === career.selectedTeamId) next.finances = [...career.finances, { teamId, season: career.season, round, description, amount, balance }];
   return next;
 }
 
@@ -104,7 +107,7 @@ export function settleRound(career: Career, round: number): Career {
       const position = league.standings.find((r) => r.teamId === team.id)!.position;
       const attendance = Math.round(team.stadium.capacity * Math.max(.35, Math.min(1, (.45 + team.reputation / 200 + (10 - position) * .008) * (match ? derbyAttendance(career, team, match.awayTeamId) : 1))));
       if (match && !match.forfeitTeamIds?.length) next = addFinance(next, team.id, round, `Bilheteria líquida · ${attendance.toLocaleString('pt-BR')} torcedores`, Math.round(attendance * team.stadium.ticketPrice * config.netGateShare));
-      next = addFinance(next, team.id, round, 'Patrocínio semanal', Math.round(config.sponsorBase + team.reputation * config.sponsorPerReputation));
+      next = addFinance(next, team.id, round, 'Patrocínio semanal', Math.round(sponsorWeekly(career, team, round)));
       next = addFinance(next, team.id, round, 'Salários · 1/4 da folha mensal', -Math.round(payroll(team) / 4));
       next = addFinance(next, team.id, round, 'Manutenção do estádio', -Math.round(team.stadium.capacity * config.stadiumCostPerSeat));
       if (team.budget < 0) next = addFinance(next, team.id, round, 'Juros da dívida · 1%', -Math.ceil(Math.abs(team.budget) * config.weeklyDebtInterest));
@@ -113,6 +116,7 @@ export function settleRound(career: Career, round: number): Career {
       }
     }
   }
+  for (const league of worldLeagues(next)) if (round === league.schedule.length) next = finalizeLeagueAwards(next, league);
   return next;
 }
 
@@ -168,11 +172,15 @@ export function sellPlayer(career: Career, playerId: string, round: number): Car
   return { ...next, lineup: null, news: [`${player.name} vendido para ${buyer.name}.`, ...next.news].slice(0, 20) };
 }
 
-export function nextSeason(career: Career): Career {
+export function nextSeason(career: Career, whileUnemployed = false): Career {
   if (worldLeagues(career).some((l) => l.schedule.some((r) => r.matches.some((m) => m.status !== 'finished')))) throw new Error('Conclua a temporada antes de continuar.');
-  if (career.systems.board.status === 'dismissed') throw new Error('Aceite um novo emprego para continuar sua carreira.');
+  if (career.systems.board.status === 'dismissed' && !whileUnemployed) throw new Error('Aceite um novo emprego para continuar sua carreira.');
   if (allCups(career).some((cup) => cup.status === 'active' && !cup.championId)) throw new Error('Conclua a copa antes de começar a próxima temporada.');
-  career = archiveSeason(career);
+  career = completeSeasonAwards(career);
+  const performance = retainedPrestige(career);
+  const beforeSponsorReview = career.systems.board.confidence;
+  career = archiveSeason(settleSponsors(career));
+  const sponsorTrustLoss = Math.max(0, beforeSponsorReview - career.systems.board.confidence);
   career = returnLoans(career);
   const divisions = worldLeagues(career).sort((a, b) => a.teams[0].division - b.teams[0].division);
   const movement = new Map<string, number>();
@@ -202,11 +210,12 @@ export function nextSeason(career: Career): Career {
       const potential = player.potential ?? Math.max(player.overall, Math.min(94, player.overall + (player.age < 24 ? 12 : 3)));
       const gain = player.age < 24 ? randomInt(rng, 0, played >= 900 ? 3 : 1) : player.age >= 30 ? -randomInt(rng, 1, 2) : randomInt(rng, -1, 1);
       const change = Math.min(gain, Math.max(0, potential - player.overall));
-      const attributes = Object.fromEntries(Object.entries(player.attributes).map(([key, value]) => [key, Math.max(1, Math.min(99, value + change))])) as unknown as Player['attributes'];
-      const evolved = { ...player, potential, age: player.age + 1, attributes, overall: calculateOverall(attributes, player.primaryPosition), fitness: 100, morale: 75, injury: null, discipline: { yellowCards: 0, suspendedMatches: 0 } };
+      const attributes = adjustAttributes(player.attributes, change);
+      const morale = player.marketPrestige?.season === career.season ? 75 + Math.min(6, Math.max(0, player.morale - 75)) : 75;
+      const evolved = { ...agePrestige(player, career.season, performance), potential, age: player.age + 1, attributes, overall: calculateOverall(attributes, player.primaryPosition), fitness: 100, morale, injury: null, discipline: { yellowCards: 0, suspendedMatches: 0 } };
       evolved.marketValue = playerValue(evolved);
       const remaining = (player.contract?.yearsRemaining ?? 1) - 1;
-      if (remaining <= 0 && team.id === career.selectedTeamId) {
+      if (remaining <= 0 && team.id === career.selectedTeamId && !whileUnemployed) {
         released.push({ ...evolved, currentTeamId: null, contract: null });
         news.push(`${player.name} saiu ao fim do contrato.`);
         return [];
@@ -236,14 +245,17 @@ export function nextSeason(career: Career): Career {
     updated.filter((team) => team.division + (movement.get(team.id) ?? 0) === index + 1), index + 1, seed, divisions.length));
   const own = leagues.find((l) => l.teams.some((t) => t.id === career.selectedTeamId))!;
   const ownClub = own.teams.find((t) => t.id === career.selectedTeamId)!;
+  const board = createBoard(ownClub, own);
   const newcomers = generateTeam(randomInt(rng, 0, 0xffff_ffff), 25).squad.slice(0, 10).map((p, i) => ({ ...p, id: `free-${seed}-season-${career.season + 1}-${i}`, currentTeamId: null, contract: null }));
-  const remainingFree = career.freeAgents.filter((p) => p.age < 36).map((p) => ({ ...p, age: p.age + 1, fitness: 100, injury: null, discipline: { yellowCards: 0, suspendedMatches: 0 } }));
+  const remainingFree = career.freeAgents.filter((p) => p.age < 36).map((p) => ({ ...agePrestige(p, career.season, performance), age: p.age + 1, fitness: 100, injury: null, discipline: { yellowCards: 0, suspendedMatches: 0 } }));
   const next: Career = { ...career, ...arrangeDivisions(leagues, own), season: career.season + 1, lineup: null,
     finances: [...career.finances, { teamId: ownClub.id, season: career.season + 1, round: 0, description: 'Saldo inicial da temporada', amount: 0, balance: ownClub.budget }],
-    history: [...career.history, summary], freeAgents: [...remainingFree, ...released, ...newcomers], news: [`Temporada ${career.season + 1}: elenco atualizado e calendário pronto.`, ...news].slice(0, 20),
-    systems: { ...career.systems, lastSummary: null, marketRound: 0, renewals: [], offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o),
-      academy: createAcademy(ownClub, seed, career.season + 1), board: createBoard(ownClub, own), cup: createCup(leagues.flatMap((league) => league.teams), seed, career.season + 1),
+    history: whileUnemployed ? career.history : [...career.history, summary], freeAgents: [...remainingFree, ...released, ...newcomers], news: [`Temporada ${career.season + 1}: elenco atualizado e calendário pronto.`, ...news].slice(0, 20),
+    systems: { ...career.systems, awardsContext: undefined, lastSummary: null, marketRound: 0, renewals: [], academies: [], youthReports: [], offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o),
+      academy: createAcademy(ownClub, seed, career.season + 1),
+      board: whileUnemployed ? { ...board, status: 'dismissed' } : { ...board, confidence: board.confidence - sponsorTrustLoss },
+      cup: createCup(leagues.flatMap((league) => league.teams), seed, career.season + 1),
       stateCups: career.extraLeague ? createStateCups(allTeams, seed) : undefined,
       continentalCups: career.extraLeague ? createContinentalCups(divisions[0].standings.map((row) => row.teamId), career.systems.cup.championId, seed) : undefined } };
-  return resolveBackgroundCup(next);
+  return resolveBackgroundCup(prepareAiSponsors(advanceAcademies(career, coachSeasonEnd(career, next))), whileUnemployed);
 }

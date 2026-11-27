@@ -64,6 +64,7 @@ export interface Player {
   discipline: PlayerDiscipline;
   contract: PlayerContract | null;
   marketValue: number;
+  marketPrestige?: { season: number; rate: number };
   /** null representa jogador sem clube. */
   currentTeamId: string | null;
 }

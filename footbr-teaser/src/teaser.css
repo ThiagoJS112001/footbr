@@ -1,0 +1,62 @@
+@font-face {
+  font-family: Inter;
+  src: url("../public/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+
+.teaser {
+  background: #030b11;
+  color: #f2f7f3;
+  font-family: Inter, Arial, sans-serif;
+  overflow: hidden;
+}
+.backdrop {
+  overflow: hidden;
+  background: radial-gradient(ellipse at 78% 26%, #103b34, #071d29 46%, #030c13 87%);
+}
+.pitch {
+  position: absolute;
+  left: 304px;
+  top: 40px;
+  width: 840px;
+  height: 1170px;
+  padding: 36px;
+  box-sizing: border-box;
+  background: repeating-linear-gradient(0deg, #3af88c05 0 90px, #3af88c11 90px 180px);
+  border: 1px solid #61ffab2c;
+}
+.pitch-outline { position: relative; height: 100%; border: 2px solid #6ff8b34c; }
+.center-line { position: absolute; top: 50%; width: 100%; border-top: 2px solid #6ff8b34c; }
+.center-circle { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 210px; height: 210px; border-radius: 50%; border: 2px solid #6ff8b34c; }
+.penalty { position: absolute; left: 20%; width: 60%; height: 150px; border: 2px solid #6ff8b34c; }
+.penalty.top { top: -2px; }
+.penalty.bottom { bottom: -2px; }
+.shade { position: absolute; inset: 0; background: linear-gradient(90deg, #030d16e8, #030d1633 81%), linear-gradient(0deg, #020a12 1%, transparent 60%); }
+.rails { position: absolute; inset: 96px 80px; border-top: 1px solid #b1fbd84a; border-bottom: 1px solid #b1fbd829; }
+.rails::before { content: ""; position: absolute; top: -2px; left: 0; width: 72px; height: 4px; background: #59f59a; }
+.headline-wrap { position: absolute; left: 88px; right: 80px; }
+.eyebrow { color: #a5d5c6; font-weight: 750; font-size: 32px; letter-spacing: .18em; margin-bottom: 26px; }
+.headline { font-size: 107px; font-weight: 880; line-height: .98; letter-spacing: -.071em; }
+.accent { color: #59f59a; }
+.glimpse {
+  position: absolute;
+  inset: auto 70px 155px 125px;
+  height: 470px;
+  background: #071e22;
+  border: 1px solid #52f69c80;
+  overflow: hidden;
+  rotate: -5deg;
+  box-shadow: 0 30px 80px #000a;
+}
+.glimpse.compact { height: 250px; bottom: 220px; rotate: 4deg; }
+.glimpse img { width: 100%; height: 100%; object-fit: cover; }
+.glimpse-shade { position: absolute; inset: 0; background: linear-gradient(27deg, #031115db, transparent 58%, #07192055); }
+.scanline { position: absolute; width: 100%; height: 2px; background: #6affa892; box-shadow: 0 0 24px #6affaa; }
+.blackout { background: #030b11; }
+.reveal { position: absolute; top: 340px; left: 80px; right: 80px; text-align: center; }
+.wordmark { font-size: 195px; font-weight: 900; line-height: 1.05; letter-spacing: -.092em; padding-right: .09em; }
+.wordmark span { color: #59f59a; }
+.brand-type { font-size: 30px; font-weight: 750; letter-spacing: .22em; color: #b6ded0; }
+.date { margin: 100px auto 0; padding: 21px 0 29px; width: 680px; border-block: 1px solid #62eea578; font-size: 76px; line-height: 1; font-weight: 850; letter-spacing: -.06em; color: #59f59a; }
+.date-label { margin-bottom: 13px; font-size: 24px; font-weight: 750; letter-spacing: .23em; color: #caeadc; }

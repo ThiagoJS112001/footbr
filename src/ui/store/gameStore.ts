@@ -10,13 +10,16 @@ import type { PlayingStyle } from '../../engine/models/Tactic';
 import { buyPlayer, createCareer, nextSeason, seasonSeed, sellPlayer } from '../../engine/career/career';
 import { negotiateRenewal } from '../../engine/career/renewals';
 import { finePlayer } from '../../engine/career/discipline';
-import type { RenewalTerms } from '../../engine/career/types';
+import type { CoachBet, RenewalTerms, SponsorId } from '../../engine/career/types';
+import { coachOf, nameCoach, respondBet, setCoach } from '../../engine/career/coach';
+import { needsSeasonSponsor, prepareAiSponsors, seasonSponsorMessage, signSponsor } from '../../engine/career/sponsors';
+import { offerYouth, scoutYouth } from '../../engine/career/youthMarket';
 import type { Career } from '../../engine/career/career';
 import { decodeSave, encodeSave } from '../../engine/save/save';
 import type { MatchCommand, SaveData } from '../../engine/save/save';
 import { createSystems, emptySystems } from '../../engine/career/bootstrap';
 import { cupLeague, managedCup, resolveBackgroundCup } from '../../engine/career/cup';
-import { finishCareerEvent, repairLineup, seasonComplete, simulateCareerEvent, startCareerEvent, upcomingDecision } from '../../engine/career/progression';
+import { advanceCoachWeek, finishCareerEvent, repairLineup, seasonComplete, simulateCareerEvent, startCareerEvent, upcomingDecision } from '../../engine/career/progression';
 import type { Competition } from '../../engine/career/progression';
 import { borrowPlayer, counterOffer, refreshOffers, respondToOffer, toggleWatchPlayer } from '../../engine/career/market';
 import { loadLineupPreset, saveLineupPreset } from '../../engine/career/preparation';
@@ -27,8 +30,9 @@ import { resetUiPreferences } from './uiStore';
 import { decodeStoredSave, encodeStoredSave } from './saveStorage';
 import { readSlot, writeSlot } from './saveSlots';
 import { simulationConfig } from '../../engine/simulation/config';
+import { completeSeasonAwards } from '../../engine/career/awards';
 
-export type GameScreen = 'dashboard' | 'squad' | 'lineup' | 'match' | 'standings' | 'calendar' | 'market' | 'finances' | 'history' | 'cup' | 'academy' | 'board' | 'compare';
+export type GameScreen = 'dashboard' | 'squad' | 'lineup' | 'match' | 'standings' | 'calendar' | 'market' | 'finances' | 'history' | 'cup' | 'academy' | 'board' | 'compare' | 'coach' | 'awards';
 export type Screen = 'menu' | 'club-selection' | 'data-import' | 'base-editor' | GameScreen;
 export { saveKey } from './saveSlots';
 
@@ -84,7 +88,13 @@ interface GameActions {
   assessYouth: (id: string) => void;
   promoteYouth: (id: string) => void;
   releaseYouth: (id: string) => void;
-  acceptJob: (id: string) => void;
+  acceptJob: (id: string, salary?: number) => void;
+  renameCoach: (name: string) => void;
+  coachWeek: () => void;
+  coachBet: (matchId: string, response: CoachBet['selection'] | 'declined' | 'reported', stake?: number) => void;
+  sponsor: (id: SponsorId, terminate?: boolean) => void;
+  scoutYouthMarket: (id: string) => void;
+  offerYouthMarket: (id: string, fee: number) => void;
   beginNextSeason: () => void;
   saveGame: (slot?: number) => void;
   loadGame: (slot?: number) => void;
@@ -148,6 +158,13 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
     set({ ...next, live: null, commands: [], currentRound: pending?.round ?? next.league.schedule.length, lastRound: competition === 'league' ? round : lastLeagueRound,
       lastCompetition: competition, lastCupRound: competition !== 'league' ? round : null, paused: true, isAdvancing: false, error: null });
     autoSave();
+  };
+  const updateCareer = (operation: (c: Career) => Career, message: string, requireClub = true) => {
+    try {
+      ensureIdle(requireClub);
+      set({ ...operation(careerOf(get())), error: null, message });
+      autoSave();
+    } catch (error) { fail(error); }
   };
   const trade = (operation: (c: Career) => Career, message: string) => {
     try {
@@ -215,13 +232,22 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
           finances: [{ teamId, season: 1, round: 0, description: 'Saldo inicial', amount: 0, balance: team.budget }],
           news: [`Você assumiu o comando de ${team.name}.`] });
         const systems = { ...createSystems(career), cup: career.systems.cup };
-        const ready = resolveBackgroundCup({ ...career, systems });
+        const initialized = { ...career, systems };
+        const ready = resolveBackgroundCup(prepareAiSponsors(setCoach(initialized, coachOf(initialized))));
         set({ ...refreshOffers(ready, 1), screen: 'dashboard', error: null });
         autoSave();
       } catch (error) { fail(error); }
     },
     navigate: (screen) => {
       if (screen !== 'menu' && screen !== 'data-import' && screen !== 'base-editor' && (!get().league || !get().selectedTeamId)) return;
+      if (screen === 'awards' && !get().live && !get().isAdvancing) {
+        const prior = careerOf(get());
+        if (!seasonComplete(prior)) return;
+        const next = completeSeasonAwards(prior);
+        set({ ...next, screen, error: null, message: null });
+        if (next !== prior) autoSave();
+        return;
+      }
       set({ screen: get().live && screen !== 'menu' ? 'match' : screen, error: null, message: null });
     },
     autoLineup: () => {
@@ -298,16 +324,18 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
       if (get().league !== league) return;
       try {
         const c = careerOf(get());
+        if (needsSeasonSponsor(c)) throw new Error(seasonSponsorMessage);
         const lineup = currentLineup();
         const result = simulateCareerEvent({ ...c, lineup }, lineup);
         commitCareer(result.career, result.competition, result.round);
-        if (get().screen !== 'menu') set({ screen: 'dashboard' });
+        if (get().screen !== 'menu') set({ screen: seasonComplete(result.career) ? 'awards' : 'dashboard' });
       } catch (error) { set({ isAdvancing: false }); fail(error); }
     },
     advanceToDecision: async () => {
       const { league, selectedTeamId, isAdvancing, live } = get();
       if (!league || !selectedTeamId || isAdvancing || live) return;
       let career = careerOf(get());
+      if (needsSeasonSponsor(career)) { fail(new Error(seasonSponsorMessage)); return; }
       let reason = upcomingDecision(career);
       if (reason) { set({ message: reason, error: null }); return; }
       set({ isAdvancing: true, error: null, message: null });
@@ -332,12 +360,14 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
         return;
       }
       if (last) commitCareer(career, last.competition, last.round, lastLeagueRound);
-      set({ message: `${played} rodada(s) simulada(s). ${reason}` });
+      if (seasonComplete(career)) get().navigate('awards');
+      else set({ message: `${played} rodada(s) simulada(s). ${reason}` });
     },
     kickOff: () => {
       try {
         ensureIdle();
         const c = careerOf(get());
+        if (needsSeasonSponsor(c)) throw new Error(seasonSponsorMessage);
         const lineup = currentLineup();
         const { session: live, competition } = startCareerEvent(c, lineup);
         set({ lineup, live, liveCompetition: competition, screen: 'match', paused: false, commands: [], error: null, message: null });
@@ -406,18 +436,45 @@ export const useGameStore = create<GameData & GameActions>((set, get) => {
     assessYouth: (id) => trade((c) => assessProspect(c, id, get().currentRound), 'Avaliação concluída.'),
     promoteYouth: (id) => trade((c) => promoteProspect(c, id, get().currentRound), 'Jovem promovido ao elenco profissional.'),
     releaseYouth: (id) => trade((c) => releaseProspect(c, id), 'Jovem dispensado desta seleção da base.'),
-    acceptJob: (id) => {
+    acceptJob: (id, salary) => {
       try {
         ensureIdle(false);
-        const next = resolveBackgroundCup(takeJob(careerOf(get()), id));
+        const next = resolveBackgroundCup(takeJob(careerOf(get()), id, salary));
         set({ ...next, screen: 'dashboard', lastRound: null, lastCupRound: null, lastCompetition: 'league', error: null, message: 'Novo trabalho iniciado. Confira o elenco e a meta da diretoria.' }); autoSave();
+      } catch (error) { fail(error); }
+    },
+    renameCoach: (name) => updateCareer((career) => nameCoach(career, name), 'Nome atualizado.', false),
+    coachBet: (matchId, response, stake) => updateCareer((career) => respondBet(career, matchId, response, stake),
+      response === 'reported' ? 'Abordagem denunciada.' : response === 'declined' ? 'Abordagem recusada.' : 'Aposta fictícia registrada.'),
+    coachWeek: () => {
+      try {
+        ensureIdle(false);
+        const previous = careerOf(get());
+        if (seasonComplete(previous)) { get().navigate('awards'); return; }
+        if (needsSeasonSponsor(previous)) throw new Error(seasonSponsorMessage);
+        const next = advanceCoachWeek(previous);
+        const round = next.league.schedule.find((stage) => stage.matches.some((match) => match.status !== 'finished'))?.round ?? next.league.schedule.length;
+        set({ ...next, currentRound: round, screen: seasonComplete(next) ? 'awards' : 'coach', error: null, message: next.season !== previous.season ? 'Nova temporada iniciada.' : 'Uma semana avançou.' });
+        autoSave();
+      } catch (error) { fail(error); }
+    },
+    sponsor: (id, terminate) => updateCareer((career) => signSponsor(career, id, terminate), 'Contrato de patrocínio registrado.'),
+    scoutYouthMarket: (id) => updateCareer((career) => scoutYouth(career, id, get().currentRound), 'Relatório atualizado.'),
+    offerYouthMarket: (id, fee) => {
+      try {
+        ensureIdle();
+        const result = offerYouth(careerOf(get()), id, fee, get().currentRound);
+        set({ ...result.career, error: null, message: result.message });
+        autoSave();
       } catch (error) { fail(error); }
     },
     beginNextSeason: () => {
       try {
-        ensureIdle();
-        const next = nextSeason(careerOf(get()));
-        set({ ...refreshOffers(next, 1), currentRound: 1, lastRound: null, lastCupRound: null, lastCompetition: 'league', screen: 'dashboard', error: null, message: 'Nova temporada iniciada. Confira contratos, elenco, base e calendário.' });
+        ensureIdle(false);
+        const previous = careerOf(get());
+        const unemployed = previous.systems.board.status === 'dismissed';
+        const next = nextSeason(previous, unemployed);
+        set({ ...refreshOffers(next, 1), currentRound: 1, lastRound: null, lastCupRound: null, lastCompetition: 'league', screen: unemployed ? 'coach' : 'dashboard', error: null, message: 'Nova temporada iniciada. Confira contratos, elenco, base e calendário.' });
         autoSave();
       } catch (error) { fail(error); }
     },

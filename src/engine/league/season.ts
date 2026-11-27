@@ -187,17 +187,17 @@ export function playRound(league: League, seed: number, lineups: Record<string, 
 }
 
 export function getTopScorers(league: League): TopScorer[] {
-  const players = new Map(league.teams.flatMap((team) => team.squad.map((player) => [player.id, { player, team }] as const)));
+  const teams = new Map(league.teams.map((team) => [team.id, team]));
+  const players = new Map(league.teams.flatMap((team) => team.squad.map((player) => [player.id, player] as const)));
   const scorers = new Map<string, TopScorer>();
   for (const match of league.schedule.flatMap((round) => round.matches)) {
     if (match.status !== 'finished') continue;
     for (const event of match.events) {
       if (event.type !== 'goal') continue;
-      const entry = players.get(event.playerId);
-      const team = league.teams.find((t) => t.id === event.teamId);
+      const team = teams.get(event.teamId);
       if (!team) continue;
       const scorer = scorers.get(event.playerId) ?? {
-        playerId: event.playerId, playerName: event.playerName ?? entry?.player.name ?? 'Jogador transferido', teamId: team.id, teamName: team.name, goals: 0,
+        playerId: event.playerId, playerName: event.playerName ?? players.get(event.playerId)?.name ?? 'Jogador transferido', teamId: team.id, teamName: team.name, goals: 0,
       };
       scorer.goals++;
       scorers.set(event.playerId, scorer);

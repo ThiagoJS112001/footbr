@@ -26,7 +26,6 @@ Use os tokens existentes em novas telas. Amarelo e vermelho representam recupera
 - `Panel` e `StatCard`: título, ícone, ação opcional, conteúdo e rodapé consistentes.
 - `DataTable`: alinhamento numérico, ordenação, paginação, destaque do clube e rolagem interna.
 - `ClubBadge`: escudos vetoriais estáveis a partir do nome dos clubes.
-- `ConditionRing`: indicador de condição física com descrição acessível e valor limitado a 0–100%.
 - `TacticalPitch`: campo vetorial que acompanha a formação e os titulares existentes.
 - `PlayerAvatar`: silhueta de uniforme, sem representar uma foto real do atleta.
 - `PageHeader`: hierarquia de página compartilhada.

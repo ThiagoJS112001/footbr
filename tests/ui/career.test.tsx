@@ -21,6 +21,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 function start() {
   useGameStore.getState().startCustomGame(createCareer(42));
   useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[19].id);
+  useGameStore.getState().sponsor('raiz');
 }
 
 describe('carreira integrada', () => {
@@ -221,6 +222,10 @@ describe('carreira integrada', () => {
     const team = useGameStore.getState().league!.teams.find((t) => t.id === useGameStore.getState().selectedTeamId)!;
     expect(team.squad).toHaveLength(26);
     await user.click(screen.getByRole('button', { name: 'Finanças' }));
+    expect(screen.queryByRole('table', { name: 'Extrato financeiro' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ver extrato' }));
     expect(screen.getByRole('table', { name: 'Extrato financeiro' })).toHaveTextContent('Compra');
+    await user.click(screen.getByRole('button', { name: 'Recolher extrato' }));
+    expect(screen.queryByRole('table', { name: 'Extrato financeiro' })).not.toBeInTheDocument();
   });
 });

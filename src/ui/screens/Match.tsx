@@ -231,7 +231,7 @@ export function MatchScreen({ league, team }: { league: League; team: Team }) {
         <button className={styles.secondaryButton} onClick={finishMatchNow}><Icon name="next" size={18} />Simular até o fim</button>
       </> : <>
         <button className={styles.primaryButton} disabled={seasonComplete(career) || systems.board.status === 'dismissed'} onClick={() => navigate('lineup')}>Preparar próximo jogo</button>
-        <button className={styles.secondaryButton} onClick={() => navigate('dashboard')}>Próxima rodada</button>
+        <button className={styles.secondaryButton} onClick={() => navigate(seasonComplete(career) ? 'awards' : 'dashboard')}>{seasonComplete(career) ? 'Ver premiações da temporada' : 'Próxima rodada'}</button>
       </>}
     </div>
   </div>;

@@ -26,6 +26,12 @@ const secondaryPositions: Record<PlayerPosition, readonly PlayerPosition[]> = {
   LW: ['RW', 'AM'], RW: ['LW', 'AM'], ST: ['AM', 'LW', 'RW'],
 };
 
+export function adjustAttributes(attributes: PlayerAttributes, difference: number): PlayerAttributes {
+  const updated = { ...attributes };
+  for (const key of Object.keys(updated) as Attribute[]) updated[key] = Math.max(1, Math.min(99, updated[key] + difference));
+  return updated;
+}
+
 export function calculateOverall(attributes: PlayerAttributes, position: PlayerPosition): number {
   let total = 0;
   let weightTotal = 0;

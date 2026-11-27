@@ -1,8 +1,9 @@
 import type { League, Team } from '../models';
 import type { Career } from './career';
 import type { Board } from './types';
-import { createAcademy } from './academy';
-import { arrangeDivisions, completedRounds, ownTeam, worldLeagues, worldTeams } from './world';
+import { clubAcademy } from './academy';
+import { arrangeDivisions, completedRounds, ownTeam, worldLeagues } from './world';
+import { appointCoach, coachJobs, dismissCoach, negotiatedSalary } from './coach';
 import { clubProfile } from '../models/personality';
 import { minutesPlayed } from '../league/season';
 
@@ -32,21 +33,23 @@ export function evaluateBoard(career: Career, round: number): Career {
   const confidence = Math.max(0, Math.min(100, board.confidence + performance - debtPenalty + youthBonus));
   const dismissed = confidence <= 15;
   const note = dismissed ? 'A diretoria encerrou seu vínculo. Escolha uma proposta para continuar a carreira.' : `${row.position}º lugar, meta até ${board.targetPosition}º. ${team.budget < 0 ? 'A dívida também reduziu a confiança.' : performance >= 0 ? 'A diretoria reconhece o desempenho.' : 'A diretoria espera uma recuperação.'}${youthBonus ? ' A utilização dos sub-21 trouxe mais 3 pontos de confiança.' : ''}`;
-  return { ...career, news: [note, ...career.news].slice(0, 20), systems: { ...career.systems, board: { ...board, confidence, status: dismissed ? 'dismissed' : 'active', lastReviewRound: round, reviews: [...board.reviews, { round, confidence, note }] } } };
+  const reviewed = { ...career, news: [note, ...career.news].slice(0, 20), systems: { ...career.systems, board: { ...board, confidence, lastReviewRound: round, reviews: [...board.reviews, { round, confidence, note }] } } };
+  return dismissed ? dismissCoach(reviewed, 'performance') : reviewed;
 }
 export function availableJobs(career: Career): Team[] {
-  if (career.systems.board.status !== 'dismissed') return [];
-  const excluded = new Set([career.selectedTeamId, ...career.systems.jobs.filter((j) => j.season === career.season).flatMap((j) => [j.fromId, j.toId])]);
-  return worldTeams(career).filter((t) => !excluded.has(t.id)).sort((a, b) => a.reputation - b.reputation || a.id.localeCompare(b.id)).slice(0, 3);
+  return coachJobs(career);
 }
-export function takeJob(career: Career, teamId: string): Career {
+export function takeJob(career: Career, teamId: string, proposedSalary?: number): Career {
   if (!availableJobs(career).some((t) => t.id === teamId)) throw new Error('Proposta de emprego indisponível.');
   const league = worldLeagues(career).find((l) => l.teams.some((t) => t.id === teamId))!;
   const team = league.teams.find((t) => t.id === teamId)!;
   const round = completedRounds(career);
-  return { ...career, selectedTeamId: teamId, ...arrangeDivisions(worldLeagues(career), league), lineup: null,
+  return appointCoach(career, { ...career, selectedTeamId: teamId, ...arrangeDivisions(worldLeagues(career), league), lineup: null,
     finances: [...career.finances, { teamId, season: career.season, round, amount: 0, description: 'Início do trabalho no clube', balance: team.budget }],
     news: [`Você assumiu ${team.name} na rodada ${round}.`, ...career.news].slice(0, 20), systems: { ...career.systems, lastSummary: null,
       jobs: [...career.systems.jobs, { season: career.season, round, fromId: career.selectedTeamId!, toId: teamId }],
-      board: createBoard(team, league, round), academy: createAcademy(team, career.seed, career.season), offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o) } };
+      board: createBoard(team, league, round), academy: clubAcademy(career, team),
+      academies: [...(career.systems.academies ?? []).filter((entry) => entry.teamId !== teamId && entry.teamId !== career.selectedTeamId),
+        ...(career.systems.academy.teamId ? [career.systems.academy] : [])],
+      offers: career.systems.offers.map((o) => o.status === 'pending' ? { ...o, status: 'expired' } : o) } }, team, negotiatedSalary(career, team, proposedSalary));
 }

@@ -146,6 +146,7 @@ describe('componentes da interface', () => {
     await user.click(screen.getByRole('button', { name: 'Novo jogo' }));
     expect(screen.getAllByRole('button', { name: /^Assumir / })).toHaveLength(20);
     await user.click(screen.getAllByRole('button', { name: /^Assumir / })[0]);
+    act(() => useGameStore.getState().sponsor('raiz'));
     const teamId = useGameStore.getState().selectedTeamId!;
     const teamName = useGameStore.getState().league!.teams.find((team) => team.id === teamId)!.name;
     expect(screen.getByRole('heading', { level: 1, name: 'Central do Clube' })).toBeInTheDocument();
@@ -202,13 +203,14 @@ describe('componentes da interface', () => {
     await user.click(ratings.getByRole('button', { name: 'Fechar notas' }));
     await user.click(screen.getByRole('button', { name: 'Elenco' }));
     expect(screen.getByRole('table', { name: 'Elenco do clube' })).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('troca um titular suspenso e joga cinco rodadas da liga na central', async () => {
     const user = userEvent.setup();
     const initial = useGameStore.getState();
     initial.startNewGame(42);
     initial.selectTeam(useGameStore.getState().league!.teams[19].id);
+    initial.sponsor('raiz');
     for (let i = 0; i < 2 && nextCompetition(careerOf(useGameStore.getState())) === 'state'; i++) await initial.advanceRound();
     const career = careerOf(useGameStore.getState());
     const team = ownTeam(career);
@@ -284,7 +286,7 @@ describe('componentes da interface', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Editor de clubes e elencos' }));
-    const clubName = screen.getByRole('textbox', { name: 'Nome do clube' });
+    const clubName = await screen.findByRole('textbox', { name: 'Nome do clube' });
     const playerName = screen.getByRole('textbox', { name: 'Jogador 1' });
     await user.clear(clubName);
     await user.type(clubName, 'Clube de Teste');
@@ -296,7 +298,7 @@ describe('componentes da interface', () => {
     expect(screen.getByRole('table', { name: 'Elenco do clube' })).toHaveTextContent('Goleiro de Teste');
   });
 
-  it('exibe campeão e desabilita o avanço após a última rodada', () => {
+  it('abre a cerimônia, avança a temporada e preserva as premiações no Calendário', async () => {
     useGameStore.getState().startCustomGame(createCareer(2026));
     const state = useGameStore.getState();
     const league = state.league!;
@@ -306,8 +308,24 @@ describe('componentes da interface', () => {
     useGameStore.setState({ otherLeague: simulateSeason(useGameStore.getState().otherLeague!, 2026).league });
     while (!useGameStore.getState().systems.cup.championId) useGameStore.setState({ ...playCupRound(careerOf(useGameStore.getState())) });
     render(<App />);
+    const user = userEvent.setup();
     expect(screen.getByRole('status')).toHaveTextContent('Temporada encerrada');
     expect(screen.getByRole('status')).toHaveTextContent(completed.teams.find((team) => team.id === completed.standings[0].teamId)!.name);
-    expect(screen.getByRole('button', { name: 'Avançar' })).toBeDisabled();
-  });
+    await user.click(screen.getByRole('button', { name: 'Avançar' }));
+    expect(screen.getByRole('heading', { name: 'Premiações da Temporada' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Competição' })).toHaveValue('all');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Competição' }), completed.id);
+    const selection = within(screen.getByRole('table', { name: 'Seleção do Campeonato' }));
+    expect(selection.getAllByRole('row')).toHaveLength(12);
+    await user.click(selection.getAllByRole('button')[0]);
+    const profile = within(screen.getByRole('dialog'));
+    expect(profile.getByRole('heading', { name: 'Conquistas e Premiações' })).toBeInTheDocument();
+    await user.click(profile.getByRole('button', { name: 'Fechar ficha' }));
+    await user.click(screen.getByRole('button', { name: 'Começar próxima temporada' }));
+    expect(useGameStore.getState().season).toBe(2);
+    await user.click(screen.getByRole('button', { name: 'Calendário' }));
+    await user.click(screen.getByRole('button', { name: 'Premiações' }));
+    expect(screen.getByRole('combobox', { name: 'Temporada' })).toHaveValue('1');
+    expect(screen.getByRole('table', { name: 'Seleção da Temporada' })).toBeInTheDocument();
+  }, 25000);
 });

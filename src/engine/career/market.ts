@@ -6,6 +6,7 @@ import { monthlyPayroll, ownTeam, replaceTeams, worldTeams, requireManagedClub }
 import { formationSlots } from '../league/lineup';
 import { clubProfile } from '../models/personality';
 import { recordTransferStory } from './stories';
+import { marketInterestBonus } from './awards';
 
 export const activeLoan = (career: Career, playerId: string) => career.systems.loans.find((l) => l.playerId === playerId && l.status === 'active');
 export const rosterSize = (career: Career, teamId: string) => worldTeams(career).find((t) => t.id === teamId)!.squad.length + career.systems.loans.filter((l) => l.fromId === teamId && l.status === 'active').length;
@@ -57,10 +58,13 @@ export function refreshOffers(career: Career, round: number): Career {
   const interested = worldTeams(career).filter((t) => t.id !== team.id && spendingRoom(t) > 0 && rosterSize(career, t.id) < 35).sort((a, b) => spendingRoom(b) - spendingRoom(a) || a.id.localeCompare(b.id));
   for (const buyer of interested) {
     if (offers.filter((o) => o.status === 'pending').length >= config.maxIncomingOffers) break;
-    const position = needs(buyer)[0];
-    const options = team.squad.filter((p) => !activeLoan(career, p.id) && canSell(team, p) && !offers.some((o) => o.playerId === p.id && o.status === 'pending'))
-      .sort((a, b) => Number(b.primaryPosition === position) - Number(a.primaryPosition === position) || (b.potential ?? b.overall) - (a.potential ?? a.overall) || a.id.localeCompare(b.id));
-    const player = options.find((p) => p.marketValue * .9 + (p.contract?.salary ?? 1000) * config.salaryReserveMonths <= spendingRoom(buyer));
+    const positions = needs(buyer).slice(0, 3);
+    const priority = (p: Player) => (p.potential ?? p.overall) + marketInterestBonus(p, buyer) - positions.indexOf(p.primaryPosition) * 3;
+    const options = team.squad.filter((p) => positions.includes(p.primaryPosition) && !activeLoan(career, p.id) && canSell(team, p)
+      && !offers.some((o) => o.playerId === p.id && o.status === 'pending'))
+      .sort((a, b) => priority(b) - priority(a) || a.id.localeCompare(b.id));
+    const player = options.find((p) => Math.round(p.marketValue * .9 / 1000) * 1000
+      + (p.contract?.salary ?? 1000) * config.salaryReserveMonths <= spendingRoom(buyer));
     if (!player) continue;
     const id = `offer-${career.season}-${round}-${buyer.id}-${player.id}`;
     if (offers.some((o) => o.id === id)) continue;
@@ -75,7 +79,8 @@ export function processAiMarket(career: Career, round: number): Career {
   if (round <= career.systems.marketRound) return career;
   let next = { ...career, systems: { ...career.systems, marketRound: round } };
   if (!isWindowOpen(round)) return refreshOffers(next, round);
-  const buyers = worldTeams(next).filter((t) => t.id !== next.selectedTeamId).sort((a, b) => {
+  const managedId = next.systems.board.status === 'active' ? next.selectedTeamId : null;
+  const buyers = worldTeams(next).filter((t) => t.id !== managedId).sort((a, b) => {
     const rank = (t: Team) => (t.reputation * 7919 + seasonSeed(next) + round * t.id.length) % 101;
     return rank(a) - rank(b) || a.id.localeCompare(b.id);
   });
@@ -86,7 +91,7 @@ export function processAiMarket(career: Career, round: number): Career {
     const buyer = teams.find((t) => t.id === original.id)!;
     if (rosterSize(next, buyer.id) >= 30 || spendingRoom(buyer) <= 0) continue;
     const positions = needs(buyer).slice(0, 3);
-    const pool = [...next.freeAgents, ...teams.filter((t) => t.id !== buyer.id && t.id !== next.selectedTeamId).flatMap((t) => t.squad.filter((p) => canSell(t, p)))];
+    const pool = [...next.freeAgents, ...teams.filter((t) => t.id !== buyer.id && t.id !== managedId).flatMap((t) => t.squad.filter((p) => canSell(t, p)))];
     const candidates = pool.filter((p) => !activeLoan(next, p.id) && positions.includes(p.primaryPosition) && !p.injury && !p.discipline.suspendedMatches)
       .map((p) => {
         const current = buyer.squad.filter((q) => q.primaryPosition === p.primaryPosition).sort((a, b) => b.overall - a.overall);
@@ -95,9 +100,9 @@ export function processAiMarket(career: Career, round: number): Career {
         const salary = Math.ceil((p.contract?.salary ?? p.marketValue * .012) * 1.05 / 100) * 100;
         const profile = clubProfile(buyer);
         const development = p.age <= 22 ? Math.min(profile === 'academy' ? 8 : profile === 'traditional' ? 1 : 4, ((p.potential ?? p.overall) - p.overall) / (profile === 'academy' ? 2 : 3)) : 0;
-        return { p, fee, salary, improvement: p.overall + development - baseline };
+        return { p, fee, salary, improvement: p.overall + development - baseline, interest: marketInterestBonus(p, buyer) };
       }).filter(({ fee, salary, improvement }) => improvement >= 3 && fee + salary * config.salaryReserveMonths <= spendingRoom(buyer) && salary * 8 < buyer.budget - fee)
-      .sort((a, b) => b.improvement - a.improvement || a.fee - b.fee || a.p.id.localeCompare(b.p.id));
+      .sort((a, b) => b.improvement + b.interest - a.improvement - a.interest || a.fee - b.fee || a.p.id.localeCompare(b.p.id));
     const candidate = candidates[0];
     if (!candidate) continue;
     next = executeTransfer(next, candidate.p.id, buyer.id, candidate.fee, candidate.salary, round);

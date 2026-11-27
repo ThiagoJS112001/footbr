@@ -5,13 +5,17 @@ import { finishRound, startRound } from '../league/season';
 import type { RoundSession } from '../league/season';
 import { finishMatch } from '../simulation/simulateMatch';
 import type { Career } from './career';
-import { seasonSeed, settleRound } from './career';
+import { nextSeason, seasonSeed, settleRound } from './career';
 import { allCups, competitionTeams, dueCupRound, finishCupRound, managedCup, resolveBackgroundCup, startCupRound } from './cup';
 import { boardReviewDue, evaluateBoard } from './board';
 import { processAiMarket } from './market';
 import { arrangeDivisions, completedRounds, ownTeam, worldLeagues } from './world';
 import { matchInsights } from './insights';
 import { recordMatchStories, rivalryBetween } from './stories';
+import { coachOf, coachSuspended, cupTitlesEarned, progressCoach, recordCoachMatch, setCoach } from './coach';
+import { processAiYouth } from './youthMarket';
+import { sponsorWeekly } from './sponsors';
+import { captureAwardsContext, completeSeasonAwards, noteManagedCoach } from './awards';
 
 export const cupKinds = ['state', 'cup', 'continental', 'continental-secondary'] as const;
 export type Competition = 'league' | typeof cupKinds[number];
@@ -64,32 +68,35 @@ export function repairLineup(career: Career, preferred?: Lineup | null): Career 
 }
 export function startCareerEvent(career: Career, lineup: Lineup | null): { competition: Competition; session: RoundSession } {
   if (career.systems.board.status === 'dismissed') throw new Error('Seu vínculo foi encerrado. Escolha uma proposta na Diretoria para continuar.');
+  if (coachSuspended(career)) throw new Error('Cumpra a suspensão avançando uma semana em Minha Carreira.');
   const competition = nextCompetition(career);
   const session = competition !== 'league' ? startCupRound(career, lineup, {}, managedCup(career, competition)) : startRound(career.league, seasonSeed(career), lineup ? { [career.selectedTeamId!]: lineup } : {});
   return { competition, session };
 }
 export function finishCareerEvent(career: Career, competition: Competition, session: RoundSession): Career {
+  career = captureAwardsContext(setCoach(career, coachOf(career)));
+  const coachName = coachOf(career).name;
   const previous = career.league.standings.find((r) => r.teamId === career.selectedTeamId)!;
   const beforeBalance = ownTeam(career).budget;
   let next: Career;
-  if (competition !== 'league') next = finishCupRound(career, session, managedCup(career, competition));
+  if (competition !== 'league') next = finishCupRound(career, session, managedCup(career, competition), coachName);
   else {
-    const league = finishRound(career.league, session);
+    const result = finishRound(career.league, session);
+    const league = { ...result, schedule: result.schedule.map((round) => round.round === session.round
+      ? { ...round, matches: round.matches.map((match) => noteManagedCoach(match, career.selectedTeamId, coachName)) } : round) };
     const divisions = worldLeagues(career).map((division) => division === career.league ? league : playRound(division, seasonSeed(career)));
     next = settleRound({ ...career, ...arrangeDivisions(divisions, league) }, session.round);
-    next = evaluateBoard(next, session.round);
     next = resolveBackgroundCup(next);
-    if (session.round < career.league.schedule.length) next = processAiMarket(next, session.round + 1);
+    if (session.round < career.league.schedule.length) next = processAiYouth(processAiMarket(next, session.round + 1), session.round + 1);
   }
   next = resolveBackgroundCup(next);
-  const previouslyFinished = new Set([...worldLeagues(career).flatMap((league) => league.schedule), ...allCups(career).flatMap((cup) => cup.rounds)].flatMap((r) => r.matches).filter((m) => m.status === 'finished').map((m) => m.id));
-  const newlyFinished = [...worldLeagues(next).flatMap((l) => l.schedule.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'league' as const })))),
-    ...allCups(next).flatMap((cup) => cup.rounds).flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'cup' as const })))].filter(({ match: m }) => m.status === 'finished' && !previouslyFinished.has(m.id));
-  for (const event of newlyFinished) next = recordMatchStories(career, next, event.match, event.competition, event.round);
+  next = recordFinishedStories(career, next);
   const cup = competition === 'league' ? undefined : managedCup(next, competition);
   const stage = cup?.rounds.find((round) => round.round === session.round);
   const matches = stage?.matches ?? next.league.schedule.find((r) => r.round === session.round)!.matches;
   const match = matches.find((m) => m.homeTeamId === career.selectedTeamId || m.awayTeamId === career.selectedTeamId);
+  next = recordCoachMatch(next, match, cupTitlesEarned(career, next));
+  if (competition === 'league') next = evaluateBoard(progressCoach(career, next), session.round);
   const team = ownTeam(next);
   const row = next.league.standings.find((r) => r.teamId === career.selectedTeamId)!;
   const name = (id: string) => competitionTeams(next).find((t) => t.id === id)!.name;
@@ -97,7 +104,30 @@ export function finishCareerEvent(career: Career, competition: Competition, sess
   const title = stage ? (cup!.weeks ? cup!.name + ' · ' + stage.name : stage.name) : `Rodada ${session.round}`;
   const summary = { competition, round: session.round, teamId: team.id, title, result, position: row.position, positionChange: previous.position - row.position, points: row.points,
     moneyChange: team.budget - beforeBalance, absences: team.squad.filter((p) => p.injury || p.discipline.suspendedMatches).map((p) => `${p.name}: ${p.injury ? `${p.injury.remainingDays} dias de lesão` : `${p.discipline.suspendedMatches} jogo(s) de suspensão`}`), notes: match ? matchInsights(match, team.id) : [] };
-  return { ...next, lineup: career.lineup, systems: { ...next.systems, lastSummary: summary }, news: [`${title}: ${result}`, ...next.news].slice(0, 20) };
+  return completeSeasonAwards({ ...next, lineup: next.systems.board.status === 'dismissed' ? null : career.lineup, systems: { ...next.systems, lastSummary: summary }, news: [`${title}: ${result}`, ...next.news].slice(0, 20) });
+}
+function recordFinishedStories(before: Career, next: Career): Career {
+  const previouslyFinished = new Set([...worldLeagues(before).flatMap((league) => league.schedule), ...allCups(before).flatMap((cup) => cup.rounds)].flatMap((r) => r.matches).filter((m) => m.status === 'finished').map((m) => m.id));
+  const newlyFinished = [...worldLeagues(next).flatMap((l) => l.schedule.flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'league' as const })))),
+    ...allCups(next).flatMap((cup) => cup.rounds).flatMap((r) => r.matches.map((m) => ({ match: m, round: r.round, competition: 'cup' as const })))].filter(({ match: m }) => m.status === 'finished' && !previouslyFinished.has(m.id));
+  for (const event of newlyFinished) next = recordMatchStories(before, next, event.match, event.competition, event.round);
+  return next;
+}
+
+export function advanceCoachWeek(career: Career): Career {
+  const unemployed = career.systems.board.status === 'dismissed';
+  if (!unemployed && !coachSuspended(career)) throw new Error('Avance pelo calendário do seu clube.');
+  const ready = resolveBackgroundCup(career, true);
+  if (seasonComplete(ready)) {
+    const completed = completeSeasonAwards(recordFinishedStories(career, ready));
+    return seasonComplete(career) ? nextSeason(completed, unemployed) : completed;
+  }
+  const divisions = worldLeagues(ready).map((league) => playRound(league, seasonSeed(ready)));
+  const round = completedRounds(ready) + 1;
+  let next = settleRound({ ...ready, ...arrangeDivisions(divisions, divisions[0]) }, round);
+  next = resolveBackgroundCup(next, true);
+  if (round < next.league.schedule.length) next = processAiYouth(processAiMarket(next, round + 1), round + 1);
+  return completeSeasonAwards(progressCoach(career, recordFinishedStories(career, next)));
 }
 export function simulateCareerEvent(career: Career, lineup: Lineup | null): { career: Career; competition: Competition; round: number } {
   const { competition, session } = startCareerEvent(career, lineup);
@@ -109,7 +139,7 @@ export function financeForecast(career: Career) {
   const entries = career.finances.filter((e) => e.season === career.season && (!e.teamId || e.teamId === team.id));
   const paidWeeks = entries.filter((e) => e.description === 'Patrocínio semanal').length;
   const operating = entries.filter((e) => /Bilheteria líquida|Patrocínio semanal|Salários|Manutenção|Juros/.test(e.description)).reduce((s, e) => s + e.amount, 0);
-  const weekly = paidWeeks ? operating / paidWeeks : (50000 + team.reputation * 1200) + team.stadium.capacity * .7 * team.stadium.ticketPrice * .2 / 2 - team.payroll / 4 - team.stadium.capacity * 1.8;
+  const weekly = paidWeeks ? operating / paidWeeks : sponsorWeekly(career, team) + team.stadium.capacity * .7 * team.stadium.ticketPrice * .2 / 2 - team.payroll / 4 - team.stadium.capacity * 1.8;
   return { weekly: Math.round(weekly), fourWeeks: Math.round(team.budget + weekly * 4), salaryReserve: team.payroll * 2, spendingRoom: Math.max(0, team.budget - team.payroll * 2),
     note: paidWeeks ? 'Estimativa pela média operacional das semanas sob seu comando, sem compras, vendas e prêmios.' : 'Estimativa inicial de operação; público e desempenho podem alterar a receita.' };
 }

@@ -4,12 +4,14 @@ import { worldLeagues, worldTeams } from '../career/world';
 import type { Career } from '../career/career';
 import type { PlayingStyle } from '../models/Tactic';
 import { calculateStandings, generateSchedule } from '../league';
-import { autoPickLineup, formations, LineupUnavailableError, maxReserves, selectReserves, validateLineup } from '../league/lineup';
+import { autoPickLineup, formationSlots, formations, LineupUnavailableError, maxReserves, selectReserves, validateLineup } from '../league/lineup';
 import type { Lineup } from '../models';
 import type { Competition } from '../career/progression';
 import { createSystems } from '../career/bootstrap';
 import { careerConfig } from '../career/config';
 import { initialRivalries } from '../career/stories';
+import { awardConfig, sponsorAwardKinds } from '../career/awardTypes';
+import type { AwardCampaign, AwardSelection } from '../career/awardTypes';
 
 export type MatchCommand = { minute: number } & (
   { type: 'style'; style: PlayingStyle } | { type: 'substitution'; outId: string; inId: string }
@@ -57,7 +59,8 @@ const player = shape({ id: text, name: text, age: range(16, 60), nationality: te
   overall: range(1, 99), fitness: bounded(0, 100), morale: range(0, 100), injury: nullable(shape({ description: text, remainingDays: range(1, 10000) })),
   discipline: shape({ yellowCards: range(0, 100), suspendedMatches: range(0, 100),
     redSuspension: optional(shape({ games: range(2, 5), teamId: text, fined: bool })) }), contract: nullable(shape({ salary: range(0, 1e10), yearsRemaining: range(1, 5) })),
-  marketValue: range(0, 1e12), currentTeamId: nullable(text), potential: optional(range(1, 99)), identity: playerIdentity });
+  marketValue: range(0, 1e12), marketPrestige: optional(shape({ season: range(1, 1000), rate: bounded(0, awardConfig.maxPrestige) })),
+  currentTeamId: nullable(text), potential: optional(range(1, 99)), identity: playerIdentity });
 const team = shape({ id: text, name: text, city: text, division: oneOf(1, 2, 3), squad: list(player, 60), budget: number, payroll: number, reputation: range(0, 100),
   profile: optional(oneOf('academy', 'traditional', 'community')),
   stadium: shape({ capacity: range(1, 1000000), ticketPrice: range(0, 100000) }), defaultTactic: tactic, identity: clubIdentity });
@@ -68,7 +71,8 @@ const event: Check = (v) => object(v) && range(0, 90)(v.minute) && text(v.teamId
   || v.type === 'substitution' && text(v.playerOutId) && text(v.playerInId));
 const stats = shape({ possession: number, shots: range(0, 1000), shotsOnTarget: range(0, 1000), corners: range(0, 1000), xG: number });
 const match = shape({ id: text, homeTeamId: text, awayTeamId: text, status: oneOf('scheduled', 'finished'), homeLineup: nullable(lineup), awayLineup: nullable(lineup),
-  commentary: optional(list(shape({ minute: range(1, 90), teamId: text, playerId: optional(text), playerName: optional(text), kind: oneOf('save', 'miss', 'chance', 'pressure'), text }), 300)),
+  commentary: optional(list(shape({ minute: range(1, 90), teamId: text, playerId: optional(text), playerName: optional(text), keeperId: optional(text), kind: oneOf('save', 'miss', 'chance', 'pressure'), text }), 300)),
+  managedCoach: optional(shape({ teamId: text, name: text })),
   score: nullable(shape({ home: range(0, 1000), away: range(0, 1000) })), events: list(event, 1000), statistics: nullable(shape({ home: stats, away: stats })),
   penalties: optional(shape({ home: range(0, 1000), away: range(0, 1000) })), winnerTeamId: optional(text), forfeitTeamIds: optional(list(text, 2)),
   styleChanges: optional(list(shape({ minute: range(0, 89), teamId: text, style: oneOf('defensive', 'balanced', 'attacking') }), 1000)) });
@@ -90,7 +94,40 @@ const dataCheck = shape({ career, progress: nullable(shape({ minute: range(0, 89
 const cupCheck = shape({ id: text, name: text, status: oneOf('active', 'deferred'), byeTeamIds: list(text, 24), championId: nullable(text),
   weeks: optional(list(range(0, 38), 3)), guestIds: optional(list(text, 4)),
   rounds: list(shape({ round: range(1, 6), name: text, afterRound: range(0, 38), matches: list(match, 28) }), 6) });
+const academyCheck = shape({ teamId: nullable(text), season: range(1, 1000), promoted: range(0, 3),
+  prospects: list(shape({ player, assessed: bool, status: oneOf('available', 'promoted', 'released') }), 8) });
+const awardClubFields = { teamId: text, teamName: text };
+const awardPlayerFields = { playerId: text, playerName: text, age: range(16, 60), position, secondary: nullable(position) };
+const campaignFields = { ...awardClubFields, ...awardPlayerFields, games: range(1, 200), minutes: range(0, 18000), average: bounded(1, 10),
+  goals: range(0, 10000), assists: range(0, 10000), cleanSheets: range(0, 200), goalsConceded: range(0, 10000),
+  goalkeeperMinutes: range(0, 18000), saves: range(0, 10000),
+  clubs: list(shape({ ...awardClubFields, games: range(1, 200), minutes: range(0, 18000), goals: range(0, 10000), assists: range(0, 10000) }), 68) };
+const awardSelection = nullable(shape({ formation: oneOf(...formations), players: list(shape({ ...campaignFields, slot: position }), 11) }));
+const competitionAwards = shape({ id: text, season: range(1, 1000), name: text, kind: competition, division: optional(oneOf(1, 2, 3)),
+  champion: shape(awardClubFields), runnerUp: shape(awardClubFields), promoted: list(shape(awardClubFields), 4), relegated: list(shape(awardClubFields), 4),
+  players: list(shape({ kind: oneOf('golden-ball', 'golden-boot', 'breakthrough', 'golden-glove'), winner: shape(campaignFields) }), 4),
+  selection: awardSelection, coach: nullable(shape({ ...awardClubFields, name: text, user: bool, position: range(1, 60),
+    expected: range(1, 60), games: range(1, 100), pointsRate: bounded(0, 1) })) });
 const systemsCheck = shape({
+  competitionAwards: optional(list(competitionAwards, 21000)),
+  seasonAwards: optional(list(shape({ season: range(1, 1000), selection: awardSelection, coachedClubs: list(text, 60) }), 1000)),
+  awardsContext: optional(shape({ season: range(1, 1000), players: list(shape(awardPlayerFields), 5000),
+    competitionsInProgress: optional(list(text, 21)),
+    clubs: list(shape({ ...awardClubFields, strength: bounded(1, 99), reputation: range(0, 100), budget: number, target: range(1, 20) }), 60) })),
+  sponsors: optional(list(shape({ teamId: text, sponsorId: oneOf('raiz', 'vertice', 'pulso'), annual: range(1, 1e12),
+    start: range(1, 1003), end: range(1, 1003), target: nullable(range(1, 20)),
+    awardBonuses: optional(list(shape({ kind: oneOf(...sponsorAwardKinds), rate: bounded(.001, .25) }), sponsorAwardKinds.length)) }), 60)),
+  academies: optional(list(academyCheck, 60)),
+  youthReports: optional(list(shape({ teamId: text, playerId: text, level: range(1, 3) }), 2400)),
+  coach: optional(shape({ name: text, reputation: range(0, 100), integrity: range(0, 100), cash: range(0, 1e12),
+    salary: range(0, 1e10), suspendedUntil: range(0, 40000), lastWeek: range(0, 40000),
+    stints: list(shape({ teamId: text, season: range(1, 1000), started: range(0, 38), ended: optional(range(0, 38)),
+      games: range(0, 60), wins: range(0, 60), draws: range(0, 60), losses: range(0, 60), titles: list(text, 8),
+      movement: optional(oneOf('promotion', 'relegation')), exit: optional(oneOf('performance', 'discipline', 'transfer')) }), 40000),
+    incidents: list(shape({ week: range(0, 40000), kind: oneOf('report', 'suspicion', 'investigation', 'sanction'), text }), 300000),
+    bets: list(shape({ id: text, matchId: text, label: text, selection: oneOf('home', 'draw', 'away'), odds: bounded(1, 20),
+      stake: range(100, 5000), week: range(0, 40000), evidence: range(0, 100), status: oneOf('pending', 'won', 'lost'), discovered: bool }), 120000),
+    approaches: list(shape({ matchId: text, response: oneOf('declined', 'reported') }), 120000) })),
   renewals: optional(list((v) => object(v) && text(v.teamId) && text(v.playerId)
     && (v.status === 'blocked' && range(2, 40)(v.availableAfterRound) || v.status === 'counter'
       && range(1, 2)(v.attempts) && shape({ years: range(1, 4), salary: range(100, 1e10), bonus: range(0, 1e12) })(v.demand)), 2400)),
@@ -103,7 +140,7 @@ const systemsCheck = shape({
   marketRound: range(0, 38),
   offers: list(shape({ id: text, playerId: text, playerName: text, buyerId: text, amount: range(0, 1e12), season: range(1, 1000), round: range(1, 38), expiresRound: range(1, 38), status: oneOf('pending', 'accepted', 'rejected', 'expired'), countered: optional(bool) }), 50000),
   transfers: list(shape({ id: text, playerId: text, playerName: text, fromId: nullable(text), fromName: text, toId: text, toName: text, fee: range(0, 1e12), season: range(1, 1000), round: range(0, 38) }), 200000),
-  academy: shape({ teamId: nullable(text), season: range(1, 1000), promoted: range(0, 3), prospects: list(shape({ player, assessed: bool, status: oneOf('available', 'promoted', 'released') }), 5) }),
+  academy: academyCheck,
   board: shape({ teamId: nullable(text), targetPosition: range(1, 20), confidence: range(0, 100), status: oneOf('active', 'dismissed'), lastReviewRound: range(0, 38), appointedRound: range(0, 38), startingPoints: optional(range(0, 114)), reviews: list(shape({ round: range(1, 38), confidence: range(0, 100), note: text }), 10) }),
   cup: cupCheck,
   playerHistory: list(shape({ playerId: text, playerName: text, teamId: text, teamName: text, season: range(1, 1000), division: oneOf(1, 2, 3), appearances: range(0, 60), minutes: range(0, 5400), goals: range(0, 1000), titles: list(text, 4) }), 2000000),
@@ -202,6 +239,26 @@ function validateSystems(c: Career, ids: string[], playerIds: string[]): void {
   const s = c.systems;
   const club = (id: string | null) => id !== null && ids.includes(id);
   const unique = (values: string[]) => new Set(values).size === values.length;
+  const validCampaign = (entry: AwardCampaign) => entry.minutes <= entry.games * 90 && entry.goalkeeperMinutes <= entry.minutes
+    && entry.cleanSheets <= entry.games && unique(entry.clubs.map((item) => item.teamId))
+    && entry.clubs.some((item) => item.teamId === entry.teamId)
+    && (['games', 'minutes', 'goals', 'assists'] as const).every((key) => entry.clubs.reduce((sum, item) => sum + item[key], 0) === entry[key]);
+  const validSelection = (selection: AwardSelection | null) => !selection || selection.players.length === 11
+    && unique(selection.players.map((entry) => entry.playerId))
+    && formationSlots(selection.formation).every((slot, index) => selection.players[index].slot === slot && validCampaign(selection.players[index]));
+  const editions = s.competitionAwards ?? [];
+  const ceremonies = s.seasonAwards ?? [];
+  const context = s.awardsContext;
+  if (!unique(editions.map(({ id, season }) => JSON.stringify([season, id]))) || editions.some((edition) => edition.season > c.season
+    || edition.champion.teamId === edition.runnerUp.teamId || (edition.kind === 'league') !== (edition.division !== undefined)
+    || !unique(edition.players.map((entry) => entry.kind)) || edition.players.some((entry) => !validCampaign(entry.winner))
+    || !validSelection(edition.selection)) || !unique(ceremonies.map((entry) => String(entry.season)))
+    || ceremonies.some((entry) => entry.season > c.season || !validSelection(entry.selection) || !unique(entry.coachedClubs) || entry.coachedClubs.some((id) => !club(id)))
+    || context && (context.season !== c.season || context.clubs.length !== ids.length || !unique(context.clubs.map((item) => item.teamId))
+      || context.clubs.some((item) => !club(item.teamId)) || !unique(context.players.map((item) => item.playerId)))
+    || [...worldTeams(c).flatMap((team) => team.squad), ...c.freeAgents].some((entry) => (entry.marketPrestige?.season ?? 0) > c.season)) {
+    throw new Error('Premiações e prestígio de mercado inconsistentes.');
+  }
   if (worldTeams(c).flatMap((t) => t.squad).some((p) => p.academyClubId !== undefined && !club(p.academyClubId))) throw new Error('Clube formador inexistente no save.');
   if (!unique(s.watchlist.map((p) => p.playerId)) || s.watchlist.some((p) => p.clubId !== null && !club(p.clubId))
     || !unique(s.savedLineups.map((p) => `${p.teamId}-${p.name}`)) || s.savedLineups.some((p) => !club(p.teamId) || p.lineup.starterIds.length !== 11 || !unique([...p.lineup.starterIds, ...p.lineup.substituteIds]))
@@ -220,9 +277,20 @@ function validateSystems(c: Career, ids: string[], playerIds: string[]): void {
   if (s.playerHistory.some((r) => !club(r.teamId) || r.season > c.season) || s.clubHistory.some((r) => !club(r.teamId) || r.season > c.season)
     || s.jobs.some((j) => !club(j.fromId) || !club(j.toId) || j.fromId === j.toId || j.season > c.season)
     || s.lastSummary && !club(s.lastSummary.teamId)) throw new Error('Histórico da carreira inconsistente.');
-  const prospects = s.academy.prospects;
-  if (new Set(prospects.map((p) => p.player.id)).size !== prospects.length || prospects.filter((p) => p.status === 'promoted').length !== s.academy.promoted
+  const academies = [s.academy, ...(s.academies ?? [])];
+  const prospects = academies.flatMap((academy) => academy.prospects);
+  if (!unique(academies.flatMap((academy) => academy.teamId ? [academy.teamId] : [])) || !unique(prospects.map((p) => p.player.id))
+    || academies.some((academy) => academy.season !== c.season || academy.teamId !== null && !club(academy.teamId)
+      || academy.prospects.filter((p) => p.status === 'promoted').length !== academy.promoted)
     || prospects.some((p) => p.player.currentTeamId !== null || p.player.contract !== null || p.status === 'available' && playerIds.includes(p.player.id))) throw new Error('Categorias de base inconsistentes.');
+  const sponsors = s.sponsors ?? [];
+  if (!unique(sponsors.map((item) => item.teamId)) || sponsors.some((item) => !club(item.teamId) || item.start > c.season + 1 || item.end < item.start || item.end > item.start + 2
+    || !unique((item.awardBonuses ?? []).map((clause) => clause.kind)))) throw new Error('Patrocínios inconsistentes.');
+  const reports = s.youthReports ?? [];
+  if (!unique(reports.map((item) => JSON.stringify([item.teamId, item.playerId]))) || reports.some((item) => !club(item.teamId))) throw new Error('Observações da base inconsistentes.');
+  if (s.coach && (!s.coach.name.trim() || s.coach.name.length > 60 || s.coach.lastWeek > (c.season - 1) * 38 + completed(c.league)
+    || s.coach.stints.some((entry) => !club(entry.teamId) || entry.season > c.season || entry.ended !== undefined && entry.ended < entry.started
+      || entry.games !== entry.wins + entry.draws + entry.losses) || !unique(s.coach.bets.map((bet) => bet.id)))) throw new Error('Histórico do treinador inconsistente.');
   const national = s.cup;
   if (national.weeks || national.guestIds) throw new Error('Regulamento nacional inválido.');
   validateCup(national, ids, careerConfig.cupWeeks, [ids.length - 32, 16, 8, 4, 2, 1], 64 - ids.length);

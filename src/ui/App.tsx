@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { useGameStore } from './store/gameStore';
+import { lazy, Suspense, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { careerOf, useGameStore } from './store/gameStore';
 import { Layout } from './components/Layout';
 import { Menu } from './screens/Menu';
 import { ClubSelection } from './screens/ClubSelection';
@@ -11,15 +12,22 @@ import { LineupScreen } from './screens/Lineup';
 import { MatchScreen } from './screens/Match';
 import { Market } from './screens/Market';
 import { Finances } from './screens/Finances';
-import { History } from './screens/History';
 import { AcademyScreen } from './screens/Academy';
 import { BoardScreen } from './screens/Board';
 import { CompareScreen } from './screens/Compare';
-import { BaseEditor } from './screens/BaseEditor';
-import { DataImport } from './screens/DataImport';
+import { CoachScreen } from './screens/Coach';
+import { SeasonAwardsScreen } from './screens/Awards';
+import { seasonComplete } from '../engine/career/progression';
+
+const BaseEditor = lazy(() => import('./screens/BaseEditor').then(({ BaseEditor }) => ({ default: BaseEditor })));
+const DataImport = lazy(() => import('./screens/DataImport').then(({ DataImport }) => ({ default: DataImport })));
+const History = lazy(() => import('./screens/History').then(({ History }) => ({ default: History })));
+const loadingScreen = <p role="status">Carregando…</p>;
 
 export function App() {
-  const { screen, league, selectedTeamId, currentRound } = useGameStore();
+  const { screen, league, selectedTeamId, currentRound } = useGameStore(useShallow(({ screen, league, selectedTeamId, currentRound }) => ({
+    screen, league, selectedTeamId, currentRound,
+  })));
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -30,15 +38,19 @@ export function App() {
         else if (['1', '2', '4', '8'].includes(event.key)) state.setSpeed(Number(event.key));
         else return;
       } else if (state.screen === 'dashboard' && !state.live && state.systems.board.status === 'active' && event.key.toLowerCase() === 'j') {
-        void state.advanceRound();
+        if (seasonComplete(careerOf(state))) state.navigate('awards');
+        else void state.advanceRound();
       } else return;
       event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  if (screen === 'base-editor') return <BaseEditor />;
-  if (screen === 'data-import') return <DataImport />;
+  if (screen === 'base-editor' || screen === 'data-import') {
+    return <Suspense fallback={loadingScreen}>
+      {screen === 'base-editor' ? <BaseEditor /> : <DataImport />}
+    </Suspense>;
+  }
   if (screen === 'menu' || !league) return <Menu />;
   const team = league.teams.find((candidate) => candidate.id === selectedTeamId);
   if (screen === 'club-selection' || !team) return <ClubSelection league={league} />;
@@ -49,9 +61,11 @@ export function App() {
     {screen === 'match' && <MatchScreen league={league} team={team} />}
     {screen === 'market' && <Market team={team} />}
     {screen === 'finances' && <Finances team={team} />}
-    {screen === 'history' && <History />}
+    {screen === 'history' && <Suspense fallback={loadingScreen}><History /></Suspense>}
     {screen === 'academy' && <AcademyScreen />}
     {screen === 'board' && <BoardScreen />}
+    {screen === 'coach' && <CoachScreen />}
+    {screen === 'awards' && <SeasonAwardsScreen />}
     {screen === 'compare' && <CompareScreen />}
     {screen === 'standings' && <Standings league={league} selectedTeamId={team.id} />}
     {(screen === 'calendar' || screen === 'cup') && <Calendar league={league} selectedTeamId={team.id} currentRound={currentRound} />}

@@ -76,6 +76,7 @@ describe('fluxo administrativo de importação', () => {
     expect(screen.getByRole('region', { name: 'Identidade importada do jogador' })).toHaveTextContent('Nascimento: Não informado');
     const source = useGameStore.getState().source;
     await act(async () => {
+      useGameStore.getState().sponsor('raiz');
       for (let i = 0; i < 3 && useGameStore.getState().lastRound === null; i++) await useGameStore.getState().advanceRound();
     });
     const raw = useGameStore.getState().exportGame()!;

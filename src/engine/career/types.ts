@@ -1,4 +1,5 @@
 import type { Lineup, Match, Player, PlayerContract } from '../models';
+import type { AwardsContext, CompetitionAwards, SeasonAwards, SponsorAwardKind } from './awardTypes';
 
 export interface TransferOffer {
   countered?: boolean;
@@ -19,6 +20,26 @@ export interface Prospect {
 }
 export interface Academy {
   teamId: string | null; season: number; promoted: number; prospects: Prospect[];
+}
+export type SponsorId = 'raiz' | 'vertice' | 'pulso';
+export interface SponsorContract {
+  teamId: string; sponsorId: SponsorId; annual: number; start: number; end: number; target: number | null;
+  awardBonuses?: { kind: SponsorAwardKind; rate: number }[];
+}
+export interface CoachStint {
+  teamId: string; season: number; started: number; ended?: number;
+  games: number; wins: number; draws: number; losses: number; titles: string[]; movement?: 'promotion' | 'relegation';
+  exit?: 'performance' | 'discipline' | 'transfer';
+}
+export interface CoachBet {
+  id: string; matchId: string; label: string; selection: 'home' | 'draw' | 'away'; odds: number; stake: number;
+  week: number; evidence: number; status: 'pending' | 'won' | 'lost'; discovered: boolean;
+}
+export interface CoachProfile {
+  name: string; reputation: number; integrity: number; cash: number; salary: number; suspendedUntil: number; lastWeek: number;
+  stints: CoachStint[];
+  incidents: { week: number; kind: 'report' | 'suspicion' | 'investigation' | 'sanction'; text: string }[];
+  bets: CoachBet[]; approaches: { matchId: string; response: 'declined' | 'reported' }[];
 }
 export interface BoardReview { round: number; confidence: number; note: string }
 export interface Board {
@@ -45,6 +66,13 @@ export interface RoundSummary {
   position: number; positionChange: number; points: number; moneyChange: number; absences: string[]; notes: string[];
 }
 export interface CareerSystems {
+  competitionAwards?: CompetitionAwards[];
+  seasonAwards?: SeasonAwards[];
+  awardsContext?: AwardsContext;
+  sponsors?: SponsorContract[];
+  academies?: Academy[];
+  youthReports?: { teamId: string; playerId: string; level: number }[];
+  coach?: CoachProfile;
   renewals?: RenewalNegotiation[];
   savedLineups: { teamId: string; name: 'main' | 'reserve' | 'cup'; lineup: Lineup }[];
   watchlist: { playerId: string; playerName: string; value: number; clubId: string | null }[];

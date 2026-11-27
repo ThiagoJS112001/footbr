@@ -17,6 +17,7 @@ import { PlayerStatus } from '../components/PlayerStatus';
 import { ClubMetrics, Level } from '../components/ClubMetrics';
 import { Icon } from '../components/Icon';
 import { TacticalPitch } from '../components/TacticalPitch';
+import { PlayerHonors } from '../components/PlayerHonors';
 import views from './ClubViews.module.css';
 
 const columns: Column<Player>[] = [
@@ -90,6 +91,7 @@ export function Squad({ team }: { team: Team }) {
       <button className={styles.secondaryButton} onClick={() => navigate('lineup')}>Ver escalação <Icon name="arrow" size={17} /></button>
     </aside>
     </div>
+    {selected && career && <PlayerHonors career={career} playerId={selected.id} player={selected} />}
     {selected && <section className={styles.panel} aria-label="Personalidade e momentos do jogador"><PlayerTraitBadge player={selected} detailed />{selected.academyClubId && <p className={styles.tableNote}>Formado na base de {worldTeams(career!).find((t) => t.id === selected.academyClubId)?.name ?? 'seu clube de origem'}.</p>}{loan && <p className={styles.tableNote}>Emprestado por {worldTeams(career!).find((t) => t.id === loan.fromId)?.name} até o fim da temporada. O contrato pertence ao clube de origem.</p>}<ul className={styles.compactList}>{moments.map((m) => <li key={m.id}><span>{m.text}<small>Temporada {m.season} · Rodada {m.round}</small></span></li>)}</ul></section>}
     {selected && fine > 0 && <section className={styles.panel} aria-label="Multa disciplinar"><div className={styles.controls}><span>{selected.name} · expulsão com suspensão de {selected.discipline.redSuspension!.games} jogos</span><button className={styles.secondaryButton} onClick={() => state.fine(selected.id)}>Aplicar multa de {currency(fine)}</button></div></section>}
     {selected?.identity && <section className={styles.panel} aria-label="Identidade importada do jogador"><div className={styles.panelHeading}><h2>Dados da fonte · {selected.identity.provider === 'demo' ? 'Demonstração fictícia' : 'API-Football'}</h2></div><p className={styles.tableNote}>Nome: {selected.identity.facts.name} · Nascimento: {selected.identity.facts.birthDate ?? 'Não informado'} · Idade no perfil: {selected.identity.facts.age ?? 'Não informada'} · Nacionalidade: {selected.identity.facts.nationality ?? 'Não informada'} · Posição na fonte: {selected.identity.facts.position ?? 'Não informada'} · Camisa na base: {selected.identity.facts.number ?? 'Não informada'} · ID externo: {selected.identity.facts.externalId}. Clube nesta carreira: {team.name}. Consulta: {new Date(selected.identity.observedAt).toLocaleDateString('pt-BR')}. Atributos abaixo gerados para simulação.</p></section>}

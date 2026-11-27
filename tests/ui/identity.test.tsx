@@ -11,7 +11,14 @@ import { autoPickLineup } from '../../src/engine/league';
 import { startRound, stepRound } from '../../src/engine/league/season';
 import { simulationConfig } from '../../src/engine/simulation/config';
 
-beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); useGameStore.getState().startCustomGame(createCareer(42)); useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[19].id); });
+if (!HTMLDialogElement.prototype.showModal) {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.setAttribute('open', ''); } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute('open'); } },
+  });
+}
+
+beforeEach(() => { localStorage.clear(); useGameStore.setState({ ...initialGameData }); useGameStore.getState().startCustomGame(createCareer(42)); useGameStore.getState().selectTeam(useGameStore.getState().league!.teams[19].id); useGameStore.getState().sponsor('raiz'); });
 afterEach(cleanup);
 
 describe('ritmo e identidade na interface', () => {
@@ -120,15 +127,26 @@ describe('ritmo e identidade na interface', () => {
     render(<App />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Propostas recebidas' }));
-    await user.click(screen.getByRole('button', { name: 'Contraproposta' }));
-    const input = screen.getByRole('spinbutton', { name: `Contraproposta por ${offer.playerName} (R$)` });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const analyze = screen.getByRole('button', { name: `Analisar proposta por ${offer.playerName}` });
+    await user.click(analyze);
+    const proposal = within(screen.getByRole('dialog', { name: offer.playerName }));
+    expect(proposal.getByRole('heading', { name: 'Detalhes da proposta' })).toBeInTheDocument();
+    expect(proposal.getByRole('heading', { name: 'Informações do jogador' })).toBeInTheDocument();
+    await user.click(proposal.getByRole('button', { name: 'Fechar proposta' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(analyze);
+    const reopened = within(screen.getByRole('dialog', { name: offer.playerName }));
+    await user.click(reopened.getByRole('button', { name: 'Contraproposta' }));
+    const input = reopened.getByRole('spinbutton', { name: `Contraproposta por ${offer.playerName} (R$)` });
     await user.clear(input);
     await user.type(input, String(offer.amount + 1000));
     await user.click(within(input.closest('form')!).getByRole('button', { name: 'Negociar valor' }));
     expect(ownTeam(careerOf(useGameStore.getState())).budget).toBe(budget);
-    expect(screen.getByText('Resposta final do comprador')).toBeInTheDocument();
+    expect(reopened.getByRole('status')).toHaveTextContent('Resposta final do comprador');
     const revised = useGameStore.getState().systems.offers.find((o) => o.id === offer.id)!;
-    await user.click(screen.getByRole('button', { name: `Aceitar proposta por ${offer.playerName}` }));
+    await user.click(reopened.getByRole('button', { name: `Aceitar proposta por ${offer.playerName}` }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(ownTeam(careerOf(useGameStore.getState())).budget).toBe(budget + revised.amount);
     expect(useGameStore.getState().error).toBeNull();
   });

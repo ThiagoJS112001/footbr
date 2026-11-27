@@ -17,6 +17,6 @@ export function Panel({ title, icon, action, footer, children, className = '', .
   </section>;
 }
 
-export function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+export function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: ReactNode }) {
   return <section className={styles.metric}><h2>{label}</h2><strong className={styles.moneyValue}>{value}</strong>{detail && <span>{detail}</span>}</section>;
 }

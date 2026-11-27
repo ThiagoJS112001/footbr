@@ -92,27 +92,44 @@ export function autoPickLineup(team: Team, preferred?: Lineup, considerFitness =
     const readiness = considerFitness ? .65 + player.fitness * .0035 : 1;
     return factor === 0 ? leagueConfig.unavailableCost : -calculateOverall(player.attributes, position) * factor * readiness - (keep ? 1000 : 0);
   }));
-  const u = Array(slots.length + 1).fill(0) as number[];
-  const v = Array(players.length + 1).fill(0) as number[];
-  const p = Array(players.length + 1).fill(0) as number[];
-  const way = Array(players.length + 1).fill(0) as number[];
-  for (let row = 1; row <= slots.length; row++) {
+  const chosen = minimumCostAssignment(costs);
+  if (chosen.some((column, row) => costs[row][column] === leagueConfig.unavailableCost)) {
+    throw new LineupUnavailableError(`${team.name}: não há jogadores elegíveis para todas as posições.`);
+  }
+  const starterIds = chosen.map((column) => players[column].id);
+  return {
+    starterIds,
+    substituteIds: selectReserves(players.filter((player) => !starterIds.includes(player.id))),
+    positions: Object.fromEntries(starterIds.map((id, index) => [id, slots[index]])),
+    tactic: { ...team.defaultTactic },
+  };
+}
+
+/** Associa uma coluna única a cada linha de uma matriz com pelo menos tantas colunas quanto linhas. */
+export function minimumCostAssignment(costs: number[][]): number[] {
+  const rows = costs.length;
+  const columns = costs[0].length;
+  const u = Array(rows + 1).fill(0) as number[];
+  const v = Array(columns + 1).fill(0) as number[];
+  const p = Array(columns + 1).fill(0) as number[];
+  const way = Array(columns + 1).fill(0) as number[];
+  for (let row = 1; row <= rows; row++) {
     p[0] = row;
     let column = 0;
-    const min = Array(players.length + 1).fill(Infinity) as number[];
-    const used = Array(players.length + 1).fill(false) as boolean[];
+    const min = Array(columns + 1).fill(Infinity) as number[];
+    const used = Array(columns + 1).fill(false) as boolean[];
     do {
       used[column] = true;
       const currentRow = p[column];
       let delta = Infinity;
       let next = 0;
-      for (let candidate = 1; candidate <= players.length; candidate++) {
+      for (let candidate = 1; candidate <= columns; candidate++) {
         if (used[candidate]) continue;
         const cost = costs[currentRow - 1][candidate - 1] - u[currentRow] - v[candidate];
         if (cost < min[candidate]) { min[candidate] = cost; way[candidate] = column; }
         if (min[candidate] < delta) { delta = min[candidate]; next = candidate; }
       }
-      for (let candidate = 0; candidate <= players.length; candidate++) {
+      for (let candidate = 0; candidate <= columns; candidate++) {
         if (used[candidate]) { u[p[candidate]] += delta; v[candidate] -= delta; }
         else min[candidate] -= delta;
       }
@@ -124,16 +141,7 @@ export function autoPickLineup(team: Team, preferred?: Lineup, considerFitness =
       column = previous;
     } while (column !== 0);
   }
-  const chosen = Array(slots.length).fill(-1) as number[];
-  for (let column = 1; column <= players.length; column++) if (p[column]) chosen[p[column] - 1] = column - 1;
-  if (chosen.some((column, row) => costs[row][column] === leagueConfig.unavailableCost)) {
-    throw new LineupUnavailableError(`${team.name}: não há jogadores elegíveis para todas as posições.`);
-  }
-  const starterIds = chosen.map((column) => players[column].id);
-  return {
-    starterIds,
-    substituteIds: selectReserves(players.filter((player) => !starterIds.includes(player.id))),
-    positions: Object.fromEntries(starterIds.map((id, index) => [id, slots[index]])),
-    tactic: { ...team.defaultTactic },
-  };
+  const chosen = Array(rows).fill(-1) as number[];
+  for (let column = 1; column <= columns; column++) if (p[column]) chosen[p[column] - 1] = column - 1;
+  return chosen;
 }

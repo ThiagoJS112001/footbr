@@ -11,6 +11,7 @@ import { careerOf, useGameStore } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { padRound, seasonDate } from '../utils';
 import { CupBracket } from './Cup';
+import { AwardArchive } from './Awards';
 import styles from '../App.module.css';
 import views from './ClubViews.module.css';
 
@@ -18,6 +19,7 @@ const calendarViews = [
   { label: 'Próximos jogos', icon: 'calendar' },
   { label: 'Resultados', icon: 'trend' },
   { label: 'Por rodada', icon: 'standings' },
+  { label: 'Premiações', icon: 'cup' },
 ] as const;
 
 export function Calendar({ league, selectedTeamId, currentRound }: { league: League; selectedTeamId: string; currentRound: number }) {
@@ -83,24 +85,24 @@ export function Calendar({ league, selectedTeamId, currentRound }: { league: Lea
       teams={teams} playerNames={playerNames} onClose={() => setRatedMatchId(null)} />}
     <PageHeader eyebrow="AGENDA DE JOGOS" title="Calendário" description="Acompanhe os próximos jogos, resultados e o andamento das competições." />
     <div className={views.calendarControls}>
-      <label className={styles.filterLabel}>Competição
+      {view !== 'Premiações' && <label className={styles.filterLabel}>Competição
         <span className={views.competitionPicker}><Icon name="cup" size={19} /><select value={competitionId} onChange={(event) => setCompetitionId(event.target.value)}>
           <option value="all">Todas as competições</option>
           <option value={league.id}>{league.name}</option>
           {cups.map((cup) => <option key={cup.id} value={cup.id}>{cup.name}</option>)}
         </select></span>
-      </label>
-      <div className={views.calendarTabs} role="group" aria-label="Visualização do calendário">
-        {calendarViews.map(({ label, icon }) => <button key={label} aria-pressed={view === label}
-          className={view === label ? styles.primaryButton : styles.secondaryButton} onClick={() => setView(label)}><Icon name={icon} size={18} />{label}</button>)}
-      </div>
-      {!(selectedCup && view === 'Por rodada') && <label className={styles.filterLabel}>Exibir jogos
+      </label>}
+      {view !== 'Premiações' && !(selectedCup && view === 'Por rodada') && <label className={styles.filterLabel}>Exibir jogos
         <select value={onlyMine ? 'mine' : 'all'} onChange={(event) => useUiStore.setState({ calendarOnlyMine: event.target.value === 'mine' })}>
           <option value="mine">Somente meu clube</option><option value="all">Todos os clubes</option>
         </select>
       </label>}
+      <div className={views.calendarTabs} role="group" aria-label="Visualização do calendário">
+        {calendarViews.map(({ label, icon }) => <button key={label} aria-pressed={view === label}
+          className={view === label ? styles.primaryButton : styles.secondaryButton} onClick={() => setView(label)}><Icon name={icon} size={18} />{label}</button>)}
+      </div>
     </div>
-    <div className={`${views.split} ${views.calendarLayout}`}>
+    {view === 'Premiações' ? <AwardArchive career={career} /> : <div className={`${views.split} ${views.calendarLayout}`}>
       <div className={views.stack}>
         {view === 'Por rodada' ? selectedCup ? (
           <section aria-label={selectedCup.name} className={views.stack}><CupBracket career={career} cup={selectedCup} /></section>
@@ -137,6 +139,6 @@ export function Calendar({ league, selectedTeamId, currentRound }: { league: Lea
             : summaryCup.status === 'deferred' ? 'A copa começa na próxima temporada.' : cupRound ? cupRound.name : 'Aguardando a próxima etapa'}</strong></div>
         </Panel>
       </aside>
-    </div>
+    </div>}
   </>;
 }

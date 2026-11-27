@@ -1,0 +1,40 @@
+.hero {
+  margin-bottom: 1.5rem;
+  padding: clamp(1rem, 4vw, 2.4rem);
+  border: 1px solid #aa8c495f;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 84% 0%, #77612844, transparent 64%), linear-gradient(130deg, #0b251f, #0a1826 72%);
+}
+.hero > * { margin: 0; }
+.archive { display: grid; gap: 1rem; }
+.filters { display: flex; gap: .8rem; flex-wrap: wrap; }
+.filters select { min-width: min(16rem, 75vw); }
+.panel { background: var(--surface); }
+.gold { color: #ffda80; }
+.collective, .cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: .8rem;
+  padding: 1rem;
+}
+.collective > div, .card { display: grid; gap: .38rem; align-content: start; }
+.collective span, .card small, .highlights small { color: var(--muted); }
+.collective span, .card span { font-size: .83rem; }
+.cards { padding-top: 0; }
+.card {
+  min-height: 7rem;
+  padding: .85rem;
+  border: 1px solid #aa8c494a;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ab8b391c, transparent 95%);
+}
+.card > span { color: #ffda80; font-weight: 700; }
+.playerLink { padding: 0; border: 0; text-align: left; color: var(--text); background: none; font: inherit; font-weight: 700; cursor: pointer; }
+.playerLink:hover { color: var(--accent-text); text-decoration: underline; }
+.selection { display: grid; grid-template-columns: minmax(225px, 380px) minmax(0, 1fr); align-items: center; gap: 1rem; padding: 1rem; }
+.selection > svg { width: 100%; min-height: 300px; }
+.highlights { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .75rem; margin: 0; padding: 1rem; }
+.highlights li { display: flex; align-items: center; gap: .6rem; padding: .8rem; border: 1px solid #aa8c494a; border-radius: 9px; }
+.highlights svg { color: #ffda80; flex: none; }
+.highlights span { display: grid; gap: .25rem; }
+@media (max-width: 950px) { .selection { grid-template-columns: 1fr; } .selection > svg { max-width: 390px; justify-self: center; } }

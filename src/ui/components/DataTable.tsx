@@ -21,9 +21,10 @@ interface Props<T> {
   sort?: NonNullable<Props<T>['initialSort']>;
   onSortChange?: (sort: NonNullable<Props<T>['initialSort']>) => void;
   pageSize?: number;
+  scrollClassName?: string;
 }
 
-export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName, getRowProps, initialSort, sort: controlledSort, onSortChange, pageSize }: Props<T>) {
+export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName, getRowProps, initialSort, sort: controlledSort, onSortChange, pageSize, scrollClassName }: Props<T>) {
   const [localSort, setSort] = useState(initialSort);
   const sort = controlledSort ?? localSort;
   const [page, setPage] = useState(0);
@@ -37,7 +38,7 @@ export function DataTable<T>({ caption, rows, columns, getRowId, getRowClassName
   const pages = pageSize ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1;
   const currentPage = Math.min(page, pages - 1);
   const visible = pageSize ? sorted.slice(currentPage * pageSize, (currentPage + 1) * pageSize) : sorted;
-  return <div className={styles.scroll} tabIndex={0} role="region" aria-label={caption}>
+  return <div className={scrollClassName ? `${styles.scroll} ${scrollClassName}` : styles.scroll} tabIndex={0} role="region" aria-label={caption}>
     <table className={styles.table}>
       <caption className="srOnly">{caption}</caption>
       <thead><tr>{columns.map((col) => <th key={col.id} scope="col" style={{ textAlign: col.align ?? 'left' }} aria-sort={col.sortValue ? sort?.id === col.id ? sort.direction === 'asc' ? 'ascending' : 'descending' : 'none' : undefined}>

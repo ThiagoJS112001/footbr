@@ -47,6 +47,11 @@ export function calculateStandings(league: League, seed: number): LeagueStanding
   for (let start = 0; start < sorted.length;) {
     let end = start + 1;
     while (end < sorted.length && primaryOrder(sorted[start], sorted[end]) === 0) end++;
+    if (end === start + 1) {
+      result.push(sorted[start]);
+      start = end;
+      continue;
+    }
     const group = sorted.slice(start, end);
     const miniTable = new Map(group.map((row) => [row.teamId, emptyStanding(row.teamId)]));
     accumulate(miniTable, matches);

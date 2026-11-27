@@ -2,6 +2,8 @@ import { Smile, Zap } from 'lucide-react';
 import type { League, Team } from '../../engine/models';
 import { careerOf, useGameStore } from '../store/gameStore';
 import { hasLineupAbsences, nextCupEvent, seasonComplete } from '../../engine/career/progression';
+import { activeSponsor, needsSeasonSponsor, seasonSponsorMessage } from '../../engine/career/sponsors';
+import { coachSuspended } from '../../engine/career/coach';
 import { competitionTeams } from '../../engine/career/cup';
 import { RoundReview } from '../components/RoundReview';
 import { averageOverall, formationLabel, padRound, seasonDate } from '../utils';
@@ -18,12 +20,14 @@ import overview from './Dashboard.module.css';
 
 export function Dashboard({ league, team }: { league: League; team: Team }) {
   const state = useGameStore();
-  const { currentRound, season, isAdvancing, navigate, beginNextSeason, news, systems } = state;
+  const { currentRound, season, isAdvancing, navigate, news, systems } = state;
   const career = careerOf(state);
   let readyLineup = state.lineup;
   try { readyLineup ??= autoPickLineup(team, undefined, true); } catch { /* Os avisos explicam a falta de escalação. */ }
   const tactic = readyLineup?.tactic ?? team.defaultTactic;
-  const disabled = isAdvancing || systems.board.status === 'dismissed';
+  const coachIsSuspended = coachSuspended(career);
+  const disabled = isAdvancing || systems.board.status === 'dismissed' || coachIsSuspended;
+  const needsSponsor = needsSeasonSponsor(career);
   const needsLineup = hasLineupAbsences(career);
   const profile = profileInfo[clubProfile(team)];
   const cupEvent = nextCupEvent(career);
@@ -53,7 +57,10 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
     <div className={styles.clubHero}>
       <PageHeader eyebrow={`${league.name} · TEMPORADA ${padRound(season)}`} title="Central do Clube" description="Visão geral do clube, próxima partida, desempenho, elenco e principais atualizações." />
     </div>
-    {champion && <section role="status" className={styles.seasonEnd}><Icon name="standings" size={30} /><div><h2>Temporada encerrada</h2><p>Campeão: <strong>{champion.name}</strong>. Seu clube terminou em {standing.position}º lugar. Revise os contratos antes de continuar.</p><button className={styles.primaryButton} onClick={beginNextSeason}>Começar próxima temporada</button></div></section>}
+    {systems.board.status === 'active' && !activeSponsor(career, team.id) && <div className={styles.notice}>
+      {needsSponsor ? seasonSponsorMessage : 'Três propostas de patrocínio estão disponíveis.'} <button className={styles.textButton} onClick={() => navigate('finances')}>Comparar patrocinadores</button>
+    </div>}
+    {champion && <section role="status" className={styles.seasonEnd}><Icon name="standings" size={30} /><div><h2>Temporada encerrada</h2><p>Campeão: <strong>{champion.name}</strong>. Seu clube terminou em {standing.position}º lugar.</p><button className={styles.primaryButton} onClick={() => navigate('awards')}>Ver premiações da temporada</button></div></section>}
     <div className={overview.top}>
         <Panel title="Próxima Partida" icon="cup" className={overview.fixture}>
           {nextMatch && homeTeam && awayTeam ? <>
@@ -62,10 +69,11 @@ export function Dashboard({ league, team }: { league: League; team: Team }) {
             <div className={`${styles.matchup} ${overview.matchup}`}><div><ClubBadge name={homeTeam.name} image={homeTeam.identity?.facts.image} size="large" /><strong>{homeTeam.name}</strong></div><span className={styles.versus}>×</span><div><ClubBadge name={awayTeam.name} image={awayTeam.identity?.facts.image} size="large" /><strong>{awayTeam.name}</strong></div></div>
             <div className={`${styles.fixtureDetails} ${overview.fixtureDetails}`}><span><Icon name="calendar" size={16} />{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : true, state.source?.seasons[0]?.year)}</span><span><Icon name="stadium" size={16} />{homeTeam.city}</span></div>
           </> : <div className={styles.finishedMessage}>{champion ? 'Mais uma temporada entrou para a história.' : 'Seu clube folga nesta rodada.'}</div>}
+          {coachIsSuspended && <div className={styles.controls}><button className={styles.secondaryButton} onClick={() => navigate('coach')}>Acompanhar suspensão</button></div>}
           {!champion && <div className={overview.matchActions}>
             <button className={styles.secondaryButton} disabled={disabled} onClick={() => navigate('lineup')}><Icon name="calendar" size={18} /> Preparar partida</button>
-            <button className={styles.primaryButton} disabled={disabled} aria-keyshortcuts="J" title="Atalho J" onClick={() => needsLineup ? navigate('lineup') : void state.advanceRound()}><Icon name="match" size={18} /> {isAdvancing ? 'Simulando…' : 'Jogar rodada'}</button>
-            <button className={styles.secondaryButton} disabled={disabled} onClick={() => needsLineup ? navigate('lineup') : state.kickOff()}><Icon name="trend" size={18} /> Acompanhar ao vivo</button>
+            <button className={styles.primaryButton} disabled={disabled || needsSponsor} aria-keyshortcuts="J" title="Atalho J" onClick={() => needsLineup ? navigate('lineup') : void state.advanceRound()}><Icon name="match" size={18} /> {isAdvancing ? 'Simulando…' : 'Jogar rodada'}</button>
+            <button className={styles.secondaryButton} disabled={disabled || needsSponsor} onClick={() => needsLineup ? navigate('lineup') : state.kickOff()}><Icon name="trend" size={18} /> Acompanhar ao vivo</button>
           </div>}
         </Panel>
         <div className={overview.squadOverview}>

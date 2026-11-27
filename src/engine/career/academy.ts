@@ -1,4 +1,5 @@
 import { generateTeam } from '../generators/team';
+import { adjustAttributes, calculateOverall } from '../generators/player';
 import { createRng, randomInt } from '../generators/random';
 import type { PlayerPosition, Team } from '../models';
 import type { Career } from './career';
@@ -33,19 +34,51 @@ export function assessProspect(career: Career, playerId: string, round: number):
 export const prospectSalary = (overall: number) => Math.max(1000, Math.round(10000 * (overall / 10) ** 3 * .006 / 100) * 100);
 export function promoteProspect(career: Career, playerId: string, round: number): Career {
   requireManagedClub(career);
-  const academy = career.systems.academy;
+  return promoteForClub(career, ownTeam(career), career.systems.academy, playerId, round);
+}
+
+export function clubAcademy(career: Career, team: Team): Academy {
+  if (career.systems.academy.teamId === team.id) return career.systems.academy;
+  return career.systems.academies?.find((entry) => entry.teamId === team.id) ?? createAcademy(team, career.seed, career.season);
+}
+
+export function saveAcademy(career: Career, academy: Academy): Career {
+  const systems = career.systems;
+  return { ...career, systems: academy.teamId === career.selectedTeamId ? { ...systems, academy }
+    : { ...systems, academies: [...(systems.academies ?? []).filter((entry) => entry.teamId !== academy.teamId), academy] } };
+}
+
+export function promoteForClub(career: Career, team: Team, academy: Academy, playerId: string, round: number): Career {
   const prospect = academy.prospects.find((p) => p.player.id === playerId);
-  const team = ownTeam(career);
   if (!prospect || prospect.status !== 'available') throw new Error('Jovem indisponível para promoção.');
   if (academy.promoted >= config.maxPromotions) throw new Error('Limite de três promoções nesta temporada atingido.');
   if (rosterSize(career, team.id) >= 35 || team.squad.some((p) => p.id === playerId)) throw new Error('Não há vaga disponível no elenco.');
   const salary = prospectSalary(prospect.player.overall);
   if (team.budget < salary * 2) throw new Error('Saldo insuficiente para as luvas de promoção.');
-  const player = { ...prospect.player, academyClubId: team.id, currentTeamId: team.id, contract: { salary, yearsRemaining: 3 } };
+  const player = { ...prospect.player, academyClubId: prospect.player.academyClubId ?? team.id, currentTeamId: team.id, contract: { salary, yearsRemaining: 3 } };
   let next = replaceTeams(career, [{ ...team, squad: [...team.squad, player] }]);
   next = addFinance(next, team.id, round, `Promoção da base · ${player.name}`, -salary * 2);
-  return { ...next, news: [`${player.name} foi promovido ao elenco profissional.`, ...next.news].slice(0, 20), systems: { ...next.systems,
-    academy: { ...academy, promoted: academy.promoted + 1, prospects: academy.prospects.map((p) => p.player.id === playerId ? { ...p, status: 'promoted' } : p) } } };
+  if (team.id === career.selectedTeamId) next = { ...next, news: [`${player.name} foi promovido ao elenco profissional.`, ...next.news].slice(0, 20) };
+  return saveAcademy(next, { ...academy, promoted: academy.promoted + 1, prospects: academy.prospects.map((p) => p.player.id === playerId ? { ...p, status: 'promoted' } : p) });
+}
+
+export function advanceAcademies(before: Career, after: Career): Career {
+  let next = after;
+  for (const team of [...(before.systems.academies ?? []), before.systems.academy]) {
+    const club = after.league.teams.concat(after.otherLeague.teams, after.extraLeague?.teams ?? []).find((item) => item.id === team.teamId);
+    if (!club) continue;
+    const fresh = createAcademy(club, after.seed, after.season);
+    const retained = team.prospects.filter((p) => p.status === 'available' && p.player.age < 19).map((prospect) => {
+      const player = prospect.player;
+      const gain = Math.min(Math.max(0, (player.potential ?? player.overall) - player.overall), clubProfile(club) === 'academy' ? 2 : 1);
+      const attributes = adjustAttributes(player.attributes, gain);
+      return { ...prospect, player: { ...player, age: player.age + 1, attributes, overall: calculateOverall(attributes, player.primaryPosition) } };
+    });
+    const released = team.prospects.filter((p) => p.status === 'available' && p.player.age >= 19 && p.player.academyClubId)
+      .map(({ player }) => ({ ...player, age: player.age + 1 }));
+    next = saveAcademy({ ...next, freeAgents: [...next.freeAgents, ...released] }, { ...fresh, prospects: [...retained, ...fresh.prospects].slice(0, 8) });
+  }
+  return next;
 }
 
 export function prospectReport(player: import('../models').Player, team: Team) {

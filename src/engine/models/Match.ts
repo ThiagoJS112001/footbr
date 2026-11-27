@@ -41,7 +41,8 @@ export type MatchEvent = MatchEventBase & (
 );
 
 export interface Match {
-  commentary?: { minute: number; teamId: string; playerId?: string; playerName?: string; kind: 'save' | 'miss' | 'chance' | 'pressure'; text: string }[];
+  commentary?: { minute: number; teamId: string; playerId?: string; playerName?: string; keeperId?: string; kind: 'save' | 'miss' | 'chance' | 'pressure'; text: string }[];
+  managedCoach?: { teamId: string; name: string };
   id: string;
   homeTeamId: string;
   awayTeamId: string;

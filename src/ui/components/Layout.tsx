@@ -3,6 +3,7 @@ import type { League, Team } from '../../engine/models';
 import { careerOf, useGameStore } from '../store/gameStore';
 import { nextCupEvent } from '../../engine/career/progression';
 import { seasonComplete } from '../../engine/career/progression';
+import { coachSuspended } from '../../engine/career/coach';
 import type { GameScreen, Screen } from '../store/gameStore';
 import { ClubBadge } from './ClubBadge';
 import { Icon } from './Icon';
@@ -11,7 +12,7 @@ import { SaveControls } from './SaveControls';
 import { Brand } from './Brand';
 import styles from '../App.module.css';
 
-const navigation: { screen: GameScreen; label: string }[] = [
+const navigation: { screen: Exclude<GameScreen, 'awards'>; label: string }[] = [
   { screen: 'dashboard', label: 'Central do Clube' }, { screen: 'squad', label: 'Elenco' },
   { screen: 'lineup', label: 'Escalação' },
   { screen: 'standings', label: 'Classificação' }, { screen: 'calendar', label: 'Calendário' },
@@ -19,9 +20,10 @@ const navigation: { screen: GameScreen; label: string }[] = [
   { screen: 'academy', label: 'Categorias de Base' },
   { screen: 'market', label: 'Mercado' }, { screen: 'finances', label: 'Finanças' },
   { screen: 'board', label: 'Diretoria' },
+  { screen: 'coach', label: 'Minha Carreira' },
 ];
 
-const stadiumScreens = new Set<Screen>(['dashboard', 'squad', 'lineup', 'standings', 'academy', 'calendar', 'cup', 'market', 'finances', 'board']);
+const stadiumScreens = new Set<Screen>(['dashboard', 'squad', 'lineup', 'standings', 'academy', 'calendar', 'cup', 'market', 'finances', 'board', 'coach', 'awards']);
 
 export function Layout({ league, team, children }: { league: League; team: Team; children: ReactNode }) {
   const state = useGameStore();
@@ -32,7 +34,8 @@ export function Layout({ league, team, children }: { league: League; team: Team;
   const cup = cupEvent?.round;
   const dismissed = career.systems.board.status === 'dismissed';
   const advance = () => {
-    if (dismissed) { navigate('board'); return; }
+    if (complete) { navigate('awards'); return; }
+    if (dismissed || coachSuspended(career)) { navigate('coach'); return; }
     navigate('lineup');
   };
   return <div className={styles.appShell}>
@@ -46,7 +49,7 @@ export function Layout({ league, team, children }: { league: League; team: Team;
     <div className={styles.workspace}>
       {screen === 'dashboard' && <header className={styles.topbar}>
         <div className={styles.topbarClub}><ClubBadge name={team.name} image={team.identity?.facts.image} size="large" /><div><strong>{team.name}</strong><span><Icon name="user" size={14} />Você · Treinador</span></div></div>
-        <div className={styles.topbarActions}><div className={styles.dateBlock}><Icon name="calendar" size={25} /><div><strong>{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : !!live || complete, state.source?.seasons[0]?.year)}</strong><span>{complete ? 'Temporada encerrada' : cup ? `${cupEvent?.cup.name} · ${cup.name}` : `Rodada ${padRound(currentRound)} de ${league.schedule.length}`} · Temporada {padRound(season)}</span></div></div><button className={styles.advanceButton} disabled={!!live || isAdvancing || complete && !dismissed} title={dismissed ? 'Conferir propostas de emprego' : 'Preparar a próxima partida'} onClick={advance}><Icon name="match" size={21} /><span>Avançar</span></button></div>
+        <div className={styles.topbarActions}><div className={styles.dateBlock}><Icon name="calendar" size={25} /><div><strong>{seasonDate(season, cup?.afterRound ?? currentRound, cup ? 5 : !!live || complete, state.source?.seasons[0]?.year)}</strong><span>{complete ? 'Temporada encerrada' : cup ? `${cupEvent?.cup.name} · ${cup.name}` : `Rodada ${padRound(currentRound)} de ${league.schedule.length}`} · Temporada {padRound(season)}</span></div></div><button className={styles.advanceButton} disabled={!!live || isAdvancing} title={complete ? 'Ver premiações da temporada' : dismissed ? 'Conferir propostas de emprego' : 'Preparar a próxima partida'} onClick={advance}><Icon name={complete ? 'cup' : 'match'} size={21} /><span>Avançar</span></button></div>
       </header>}
       <main id="main-content" className={`${styles.content} ${stadiumScreens.has(screen) ? styles.dashboardContent : ''}`} key={screen}>{error && <p role="alert" className={styles.error}>{error}</p>}{message && <p className={styles.notice}>{message}</p>}{dismissed && screen !== 'board' && <p role="alert" className={styles.error}>Seu vínculo com o clube foi encerrado. <button className={styles.textButton} onClick={() => navigate('board')}>Ver propostas de emprego</button></p>}{children}</main>
       <details className={styles.savePanel}><summary><Icon name="save" size={16} />Salvar e carregar<span>{saveStatus || 'Gerenciar arquivos'}</span></summary><SaveControls compact /></details>

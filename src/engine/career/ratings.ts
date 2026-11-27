@@ -8,6 +8,7 @@ export interface PlayerMatchRating {
   teamId: string;
   minutes: number;
   rating: number;
+  startedAt: number;
 }
 
 export function matchRatings(match: Match): PlayerMatchRating[] {
@@ -52,8 +53,8 @@ export function matchRatings(match: Match): PlayerMatchRating[] {
   for (const event of match.commentary ?? []) {
     if (event.playerId && event.kind !== 'pressure') add(event.playerId, event.kind === 'save' ? .1 : .03);
   }
-  return [...players].flatMap(([playerId, { teamId, minutes, impact }]) => minutes > 0 || impact !== 0
-    ? [{ playerId, teamId, minutes, rating: Math.round(Math.max(1, Math.min(10, 6 + impact)) * 10) / 10 }]
+  return [...players].flatMap(([playerId, { teamId, minutes, impact, startedAt }]) => minutes > 0 || impact !== 0
+    ? [{ playerId, teamId, minutes, startedAt, rating: Math.round(Math.max(1, Math.min(10, 6 + impact)) * 10) / 10 }]
     : []);
 }
 

@@ -23,6 +23,16 @@ Empates usam pênaltis reproduzíveis, sem alterar gols ou estatísticas dos 90 
 
 Premiações por classificação: R$ 80 mil, R$ 160 mil, R$ 320 mil, R$ 600 mil, R$ 1 milhão e R$ 2 milhões. Há bilheteria líquida para o mandante quando ocorre partida.
 
+## Premiações
+
+- Cada estadual, divisão, copa nacional e continental encerra sua própria edição. A ficha da edição guarda campeão, vice, premiados e seleção. A cerimônia reúne essas fichas e monta a Seleção da Temporada com as partidas de todo o calendário. W.O. e cobranças de desempate ficam fora das estatísticas individuais.
+- Bola de Ouro e Revelação usam nota ponderada por minutos, regularidade, participações, lances decisivos e produção por posição. A Revelação exige até 21 anos. A elegibilidade exige 40% das partidas do clube e 30% dos minutos possíveis, com ao menos dois jogos quando a edição oferecer esse volume em campo.
+- A Chuteira de Ouro ordena por gols, menos jogos, menos minutos, maior nota média e ID do jogador. A Luva de Ouro considera nota, jogos sem sofrer gols, média de gols sofridos e defesas atribuídas pelo motor. Outros empates usam minutos e ID após a pontuação.
+- A seleção usa o mesmo algoritmo de atribuição da escalação. Considera as posições naturais e secundárias e dá preferência a quem atingiu a participação mínima. Quando faltam opções, pode usar um atleta que tenha disputado pelo menos 45 minutos. A Seleção da Temporada exige também participação em ao menos 18% das rodadas de uma liga.
+- Melhor Técnico combina classificação, título, aproveitamento e superação da expectativa inicial, considerando força do elenco, orçamento e reputação. O técnico do usuário precisa comandar pelo menos dois jogos e metade da campanha. Empates usam classificação e ID do clube. Em saves migrados, a categoria fica em aberto nas competições já iniciadas sem o retrato inicial.
+- `awardConfig` concentra os bônus. O prestígio acumulado fica limitado a 30% do valor, entra integralmente na temporada seguinte à conquista e depois conserva 65% em anos de bom desempenho ou 35% nos demais. A IA usa o prestígio para ordenar candidatos que já atendem a necessidade, a melhora mínima e a capacidade financeira.
+- O cadastro da edição pode ser aplicado uma única vez por temporada e competição. O clube recebe os pagamentos adicionais previstos nas cláusulas vigentes, com lançamento no extrato. Os registros históricos guardam a identidade do premiado e a participação por clube, inclusive após uma aposentadoria.
+
 ## Diretoria e continuidade
 
 Meta conforme reputação relativa na divisão. Confiança inicial: 65%. Primeira avaliação após oito rodadas no cargo; depois, a cada quatro. Usa pontos conquistados desde a contratação e considera dívidas. Confiança em 15% ou menos causa demissão e bloqueia o gerenciamento.

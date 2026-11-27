@@ -138,7 +138,8 @@ function shoot(attacking: Side, defending: Side, home: boolean, minute: number, 
   const shooters = attacking.active.filter((player) => config.roles[player.primaryPosition].shooter > 0);
   if (!shooters.length) return;
   const advantage = home ? config.homeAdvantage : -config.homeAdvantage;
-  const difference = strength(attacking, 'attack', config) - strength(defending, 'defense', config) + advantage;
+  const defenseStrength = strength(defending, 'defense', config);
+  const difference = strength(attacking, 'attack', config) - defenseStrength + advantage;
   const attackStyle = config.styles[attacking.team.lineup.tactic.style];
   const defenseStyle = config.styles[defending.team.lineup.tactic.style];
   const shotChance = clamp(config.shotProbability * Math.exp(difference * config.shotSensitivity)
@@ -156,7 +157,7 @@ function shoot(attacking: Side, defending: Side, home: boolean, minute: number, 
     ?? Math.max(config.strengthFloor, ...defending.active.map((player) => player.attributes.goalkeeping));
   const finishing = Math.min(99, shooter.attributes.finishing + (config.personality !== false && playerTrait(shooter) === 'finisher' ? 4 : 0));
   const targetChance = clamp(config.onTargetProbability * Math.exp(
-    (finishing - strength(defending, 'defense', config) + advantage) * config.onTargetSensitivity,
+    (finishing - defenseStrength + advantage) * config.onTargetSensitivity,
   ), config.onTargetMin, config.onTargetMax);
   const goalChance = clamp(config.goalOnTargetProbability * Math.exp(
     (finishing - keeperSkill + advantage) * config.keeperSensitivity,
@@ -172,7 +173,7 @@ function shoot(attacking: Side, defending: Side, home: boolean, minute: number, 
       attacking.goals++;
       events.push({ ...base, type: 'goal', assistPlayerId: goalAssist(attacking, shooter, config, assistSeed) });
     } else {
-      commentary.push({ ...base, kind: 'save', text: `${chance ? 'Grande chance! ' : ''}${shooter.name} finaliza e ${keeper?.name ?? 'o goleiro improvisado'} defende.` });
+      commentary.push({ ...base, kind: 'save', keeperId: keeper?.id, text: `${chance ? 'Grande chance! ' : ''}${shooter.name} finaliza e ${keeper?.name ?? 'o goleiro improvisado'} defende.` });
       if (rng() < config.cornerAfterSave) attacking.stats.corners++;
     }
   } else {

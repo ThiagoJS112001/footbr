@@ -9,7 +9,7 @@ export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'st
   players?: (Player | undefined)[];
   variant?: 'standard' | 'overview' | 'lineup' | 'match';
   getSlotProps?: (index: number) => HTMLAttributes<HTMLDivElement>;
-  ratingCards?: readonly { name: string; rating?: number; minutes?: number }[];
+  ratingCards?: readonly { name: string; rating?: number; minutes?: number; club?: string; appearances?: number }[];
 }) {
   const patternId = useId();
   const rows = formationRows(formation);
@@ -66,13 +66,16 @@ export function TacticalPitch({ formation = '4-4-2', players = [], variant = 'st
         const nodeY = index === 0 ? y - 20 : y - 26;
         const fitness = Math.round(player?.fitness ?? 0);
         return <g key={index} transform={`translate(${x}, ${nodeY}) scale(${scale}, 1)`}>
-          {fullName && !getSlotProps && <title>{fullName}{rated?.minutes !== undefined ? ` · ${rated.minutes} min` : ''}</title>}
+          {fullName && !getSlotProps && <title>{fullName}{rated?.club ? ` · ${rated.club} · ${rated.appearances} jogos` : rated?.minutes !== undefined ? ` · ${rated.minutes} min` : ''}</title>}
           <path d="M-6-14L-18-8L-21 3L-11 7L-9 3V17H9V3L11 7L21 3L18-8L6-14Q0-8-6-14Z" fill={index ? '#174c86' : '#008f3a'} stroke="#d6e5f3" strokeWidth="1.4" />
           <text y="8" textAnchor="middle" fill="white" fontSize="9" fontWeight="750">{positionLabels[position]}</text>
-          {(player || rated) && <><rect x="-31" y="18" width="62" height="33" rx="5" fill="#071c22" stroke="#315158" />
+          {(player || rated) && <><rect x="-31" y="18" width="62" height={rated?.club ? 39 : 33} rx="5" fill="#071c22" stroke="#315158" />
             <text y="30" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="650">{name && name.length > 14 ? `${name.slice(0, 13)}…` : name}</text>
           </>}
-          {rated && <>
+          {rated?.club ? <>
+            <text y="40" textAnchor="middle" fill="#afc4c7" fontSize="6.5">{rated.club.length > 16 ? `${rated.club.slice(0, 15)}…` : rated.club}</text>
+            <text y="52" textAnchor="middle" fill="#ffdc83" fontSize="7.5" fontWeight="750">{rated.rating?.toFixed(1).replace('.', ',')} · {rated.appearances} J</text>
+          </> : rated && <>
             <rect x="-12" y="34" width="24" height="13" rx="3" fill="#008e35" />
             <text y="44" textAnchor="middle" fill="white" fontSize="8" fontWeight="750">{rated.rating?.toFixed(1).replace('.', ',') ?? '—'}</text>
           </>}

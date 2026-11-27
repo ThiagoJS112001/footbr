@@ -8,7 +8,7 @@ import { PageHeader } from '../components/PageHeader';
 import { DataTable } from '../components/DataTable';
 import { currency, positionLabels } from '../utils';
 import styles from '../App.module.css';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { TransferOffer } from '../../engine/career/types';
 import { activeLoan, loanAvailability, loanFee, signingInterest } from '../../engine/career/market';
 import { PlayerTraitBadge } from '../components/PlayerTraitBadge';
@@ -17,11 +17,14 @@ import { ClubBadge } from '../components/ClubBadge';
 import { Level } from '../components/ClubMetrics';
 import { Icon } from '../components/Icon';
 import views from './ClubViews.module.css';
+import { YouthMarket } from './YouthMarket';
+import { PlayerHonors } from '../components/PlayerHonors';
 
 const marketTabs = [
   { label: 'Buscar jogadores', icon: 'search' },
   { label: 'Minhas negociações', icon: 'market' },
   { label: 'Propostas recebidas', icon: 'mail' },
+  { label: 'Jovens Promessas', icon: 'academy' },
 ] as const;
 const ageRanges = [
   { label: '18–25', min: 18, max: 25 },
@@ -30,27 +33,23 @@ const ageRanges = [
   { label: '35+', min: 35, max: Infinity },
 ];
 
-function OfferCounter({ offer, open, onSubmit }: { offer: TransferOffer; open: boolean; onSubmit: () => void }) {
+function OfferCounter({ offer, open, onResult }: { offer: TransferOffer; open: boolean; onResult: (error: string | null) => void }) {
   const counter = useGameStore((s) => s.counter);
   const [amount, setAmount] = useState(offer.amount + Math.max(1000, Math.round(offer.amount * .1 / 1000) * 1000));
   return <form className={views.marketActions} onSubmit={(e) => {
     e.preventDefault();
     counter(offer.id, amount);
-    if (!useGameStore.getState().error) onSubmit();
+    onResult(useGameStore.getState().error);
   }}><label className={styles.filterLabel}>Contraproposta por {offer.playerName} (R$)<input type="number" min={offer.amount + 1} max={1e12} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} required /></label><button className={styles.secondaryButton} disabled={!open}>Negociar valor</button></form>;
 }
 
 function ReceivedOffers({ offers, clubs, team, open }: { offers: TransferOffer[]; clubs: Team[]; team: Team; open: boolean }) {
-  const respondOffer = useGameStore((state) => state.respondOffer);
   const [offerId, setOfferId] = useState<string>();
-  const [counterId, setCounterId] = useState<string>();
-  const offer = offers.find((item) => item.id === offerId) ?? offers[0];
+  const offer = offers.find((item) => item.id === offerId);
   const players = new Map(team.squad.map((p) => [p.id, p]));
   const buyers = new Map(clubs.map((club) => [club.id, club]));
-  const player = offer && players.get(offer.playerId);
-  const buyer = offer && buyers.get(offer.buyerId);
-  return <div className={`${views.split} ${views.marketOffers}`}>
-    <Panel title="Propostas recebidas" icon="mail" className={`${views.surface} ${views.dense}`}
+  return <>
+    <Panel title="Propostas recebidas" icon="mail" className={`${views.surface} ${views.dense} ${views.marketOffers}`}
       action={<span className={styles.pill}>{offers.length} {offers.length === 1 ? 'pendente' : 'pendentes'}</span>}>
       <DataTable caption="Propostas recebidas" rows={offers} getRowId={(row) => row.id}
         getRowClassName={(row) => row.id === offer?.id ? styles.selectedRow : ''} columns={[
@@ -65,16 +64,49 @@ function ReceivedOffers({ offers, clubs, team, open }: { offers: TransferOffer[]
           } },
           { id: 'amount', label: 'Proposta', sortValue: (row) => row.amount, render: (row) => <strong className={styles.accent}>{currency(row.amount)}</strong> },
           { id: 'expires', label: 'Validade', sortValue: (row) => row.expiresRound, render: (row) => `Rodada ${row.expiresRound}` },
-          { id: 'action', label: '', render: (row) => <button className={styles.secondaryButton} aria-label={`Analisar proposta por ${row.playerName}`} aria-pressed={row.id === offer?.id}
-            onClick={() => { setOfferId(row.id); setCounterId(undefined); }}><Icon name="eye" size={15} />Analisar</button> },
+          { id: 'action', label: '', render: (row) => <button type="button" className={styles.secondaryButton} aria-label={`Analisar proposta por ${row.playerName}`}
+            aria-haspopup="dialog" onClick={() => setOfferId(row.id)}><Icon name="eye" size={15} />Analisar</button> },
         ]} />
     </Panel>
-    {offer && <aside aria-label="Proposta selecionada" className={`${styles.panel} ${views.surface} ${views.marketDetails}`}>
-      <div className={views.marketPlayerHeading}>
-        <span className={views.marketIdentity}><PlayerAvatar player={player} /><span><h2>{offer.playerName}</h2>
-          {player && <small>{positionLabels[player.primaryPosition]} · {player.age} anos</small>}</span></span>
-        {player && <span className={styles.rating} aria-label={`Força geral ${player.overall}`}>{player.overall}</span>}
-      </div>
+    {offer && <OfferDialog key={offer.id} offer={offer} player={players.get(offer.playerId)}
+      buyer={buyers.get(offer.buyerId)} open={open} onClose={() => setOfferId(undefined)} />}
+  </>;
+}
+
+function OfferDialog({ offer, player, buyer, open, onClose }: {
+  offer: TransferOffer; player?: Player; buyer?: Team; open: boolean; onClose: () => void;
+}) {
+  const respondOffer = useGameStore((state) => state.respondOffer);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const [counterOpen, setCounterOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current!;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); };
+  }, []);
+  const close = () => {
+    dialogRef.current?.close();
+    onClose();
+  };
+  const respond = (accept: boolean) => {
+    respondOffer(offer.id, accept);
+    const feedback = useGameStore.getState().error;
+    if (feedback) setError(feedback);
+    else close();
+  };
+  return <dialog ref={dialogRef} className={`${views.clubDialog} ${views.marketDetails}`} aria-labelledby={titleId}
+    onCancel={(event) => { event.preventDefault(); close(); }}>
+      <header className={views.clubDialogHeader}>
+        <div className={views.marketIdentity}><PlayerAvatar player={player} /><div><h2 id={titleId}>{offer.playerName}</h2>
+          {player && <small>{positionLabels[player.primaryPosition]} · {player.age} anos</small>}</div></div>
+        <div className={views.marketDialogActions}>
+          {player && <span className={styles.rating} aria-label={`Força geral ${player.overall}`}>{player.overall}</span>}
+          <button type="button" className={styles.secondaryButton} aria-label="Fechar proposta" onClick={close}><Icon name="close" size={18} /></button>
+        </div>
+      </header>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
       <section>
         <h3><Icon name="mail" size={18} />Detalhes da proposta</h3>
         {buyer && <div className={views.marketIdentity}><ClubBadge name={buyer.name} image={buyer.identity?.facts.image} /><span><strong>{buyer.name}</strong><small>Clube interessado</small></span></div>}
@@ -95,15 +127,17 @@ function ReceivedOffers({ offers, clubs, team, open }: { offers: TransferOffer[]
       </section>}
       <section>
         <div className={views.marketActions}>
-          <button className={styles.primaryButton} aria-label={`Aceitar proposta por ${offer.playerName}`} disabled={!open} onClick={() => respondOffer(offer.id, true)}><Icon name="check" size={17} />Aceitar proposta</button>
-          <button className={styles.secondaryButton} disabled={!open || offer.countered} aria-expanded={counterId === offer.id} onClick={() => setCounterId(counterId === offer.id ? undefined : offer.id)}><Icon name="market" size={17} />Contraproposta</button>
-          <button className={styles.secondaryButton} onClick={() => respondOffer(offer.id, false)}><Icon name="close" size={17} />Recusar</button>
+          <button type="button" className={styles.primaryButton} aria-label={`Aceitar proposta por ${offer.playerName}`} disabled={!open} onClick={() => respond(true)}><Icon name="check" size={17} />Aceitar proposta</button>
+          <button type="button" className={styles.secondaryButton} disabled={!open || offer.countered} aria-expanded={counterOpen} onClick={() => setCounterOpen(!counterOpen)}><Icon name="market" size={17} />Contraproposta</button>
+          <button type="button" className={styles.secondaryButton} onClick={() => respond(false)}><Icon name="close" size={17} />Recusar</button>
         </div>
-        {offer.countered && <small className={styles.muted}>Resposta final do comprador</small>}
-        {counterId === offer.id && !offer.countered && <OfferCounter key={offer.id} offer={offer} open={open} onSubmit={() => setCounterId(undefined)} />}
+        {offer.countered && <small role="status" className={styles.muted}>Resposta final do comprador</small>}
+        {counterOpen && !offer.countered && <OfferCounter offer={offer} open={open} onResult={(feedback) => {
+          setError(feedback);
+          if (!feedback) setCounterOpen(false);
+        }} />}
       </section>
-    </aside>}
-  </div>;
+  </dialog>;
 }
 
 export function Market({ team }: { team: Team }) {
@@ -164,6 +198,7 @@ export function Market({ team }: { team: Team }) {
       </button>)}
     </div>
     {tab === 'Propostas recebidas' && <ReceivedOffers offers={pendingOffers} clubs={clubs} team={team} open={open} />}
+    {tab === 'Jovens Promessas' && <YouthMarket career={career} />}
     {tab === 'Buscar jogadores' && <>
     {watchAlerts.length > 0 && <Panel title="Novidades dos observados" icon="market"><ul className={styles.compactList}>{watchAlerts.map((a) => <li key={a.id}><span>{a.text}<small>Comparação com o momento em que entrou na lista.</small></span><button className={styles.textButton} onClick={() => state.watchPlayer(a.id)}>Deixar de observar</button></li>)}</ul></Panel>}
     <section className={styles.panel}>
@@ -203,6 +238,7 @@ export function Market({ team }: { team: Team }) {
           <p className={styles.tableNote}>Nova folha mensal: {currency(team.payroll + wage)}. Reserva sugerida de dois meses: {currency((team.payroll + wage) * 2)}. Custo estimado por {contractWeeks} semanas de liga, sem futuras renovações.{deal === 'buy' ? ` Salário pedido pelo atleta: ${currency(interest!.salary)} por mês.` : ''}</p>
         </>}
     </section>}
+    {player && <PlayerHonors career={career} playerId={player.id} player={player} />}
     {activeLoans.length > 0 && <Panel title="Empréstimos em andamento" icon="market"><ul className={styles.compactList}>{activeLoans.map((l) => <li key={l.id}><span><strong>{l.playerName}</strong><small>{clubs.find((t) => t.id === l.fromId)?.name} → {clubs.find((t) => t.id === l.toId)?.name} · Retorno ao fim da temporada · Salário: {currency(l.contract.salary)}</small></span></li>)}</ul></Panel>}
     <Panel title="Movimentações recentes" icon="history" className={views.surface}
       action={<button className={styles.textButton} onClick={() => navigate('history')}>Ver movimentações do mercado <Icon name="arrow" size={15} /></button>}>

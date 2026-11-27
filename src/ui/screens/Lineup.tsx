@@ -3,6 +3,7 @@ import type { Player, Team, Tactic } from '../../engine/models';
 import { autoPickLineup, formationSlots, formations } from '../../engine/league';
 import { maxReserves } from '../../engine/league/lineup';
 import { nextCupEvent, seasonComplete } from '../../engine/career/progression';
+import { needsSeasonSponsor, seasonSponsorMessage } from '../../engine/career/sponsors';
 import { worldTeams } from '../../engine/career/world';
 import { presetLabels, type LineupPreset } from '../../engine/career/preparation';
 import { careerOf, useGameStore } from '../store/gameStore';
@@ -32,6 +33,7 @@ export function LineupScreen({ team }: { team: Team }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const career = careerOf(state);
   const complete = seasonComplete(career);
+  const needsSponsor = needsSeasonSponsor(career);
   const cup = nextCupEvent(career);
   const pending = league?.schedule.find((round) => round.matches.some((match) => match.status !== 'finished'));
   const fixture = (cup?.round.matches ?? pending?.matches)?.find((match) => match.status !== 'finished' && (match.homeTeamId === team.id || match.awayTeamId === team.id));
@@ -139,6 +141,7 @@ export function LineupScreen({ team }: { team: Team }) {
       </div>}
     </PageHeader>
     <div className={views.tabs}>{(['Escalação', 'Tática', 'Instruções'] as const).map((name, index) => <button key={name} aria-pressed={tab === name} className={tab === name ? styles.primaryButton : styles.secondaryButton} onClick={() => setTab(name)}><Icon name={(['lineup', 'target', 'news'] as const)[index]} size={17} />{name}</button>)}</div>
+    {needsSponsor && <div className={styles.notice}>{seasonSponsorMessage} <button className={styles.textButton} onClick={() => state.navigate('finances')}>Comparar patrocinadores</button></div>}
     {unavailable && <p className={styles.error}>{unavailable} Contrate jogadores ou acompanhe a rodada com W.O.</p>}
     {unavailablePlayers.length > 0 && <p className={styles.error} role="alert">Revise a escalação. {unavailablePlayers.map((p) => p.name).join(', ')} {unavailablePlayers.length === 1 ? 'está indisponível' : 'estão indisponíveis'} para a partida.</p>}
     <div className={`${styles.panel} ${views.surface} ${views.lineupSummary}`}>
@@ -149,7 +152,7 @@ export function LineupScreen({ team }: { team: Team }) {
       </div>
       <div className={views.lineupActions}>
         <button className={styles.secondaryButton} onClick={autoLineup}>Escalar automaticamente</button>
-        <button className={styles.primaryButton} disabled={complete || unavailablePlayers.length > 0 || !!state.live || state.isAdvancing || systems.board.status === 'dismissed'} onClick={kickOff}>
+        <button className={styles.primaryButton} disabled={complete || needsSponsor || unavailablePlayers.length > 0 || !!state.live || state.isAdvancing || systems.board.status === 'dismissed'} onClick={kickOff}>
           <Icon name="match" size={17} />{complete ? 'Temporada concluída' : lineup ? 'Jogar partida' : 'Acompanhar rodada com W.O.'}
         </button>
       </div>
@@ -163,7 +166,6 @@ export function LineupScreen({ team }: { team: Team }) {
           <button className={styles.secondaryButton} onClick={() => setTab('Instruções')}><Icon name="news" size={17} />Instruções da equipe</button>
         </div>
         <div className={views.pitch}>
-          <span className={styles.pill}>{formationLabel(tactic.formation)}</span>
           <TacticalPitch formation={tactic.formation} players={starters} variant="lineup" getSlotProps={(index) => ({
             ...dragSource(starters[index]),
             ...starterDrop(index),
